@@ -1,72 +1,53 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit
-from PyQt5.QtCore import Qt, QSettings
-from gui.utils import show_news
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit, QMenu, QApplication, QAction
+from PyQt5.QtCore import Qt, QSettings, QMimeData
 
 class Sidebar(QWidget):
-    """Panel lateral con botones para acciones de la interfaz."""
+    """Panel lateral vacío (sin título ni botones)."""
     def __init__(self, parent):
-        """Inicializa la barra lateral con botones."""
+        """Inicializa la barra lateral sin elementos."""
         super().__init__(parent)
-        self.setStyleSheet("background-color: #191a24;")
+        self.setStyleSheet("background-color: #2a2a2a;")
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignTop)
 
-        title = QPushButton("Screener 2025")  # Título de la barra lateral
-        title.setStyleSheet("font-size: 16px; font-weight: bold; border: none;")
-        title.setEnabled(False)  # No clickable
-        layout.addWidget(title)
-
-        update_btn = QPushButton("🔄 Actualizar")  # Botón para actualizar datos
-        update_btn.clicked.connect(parent.actualizar_datos)
-        layout.addWidget(update_btn)
-
-        filter_btn = QPushButton("🔍 Filtrar")  # Botón para abrir ventana de filtros
-        filter_btn.clicked.connect(parent.abrir_filtros)
-        layout.addWidget(filter_btn)
-
-        news_btn = QPushButton("ℹ️ Ver Noticia")  # Botón para mostrar noticia seleccionada
-        news_btn.clicked.connect(lambda: show_news(parent.table))
-        layout.addWidget(news_btn)
-
-        delete_btn = QPushButton("🗑️ Eliminar")  # Botón para eliminar filas seleccionadas
-        delete_btn.clicked.connect(parent.eliminar_seleccion)
-        layout.addWidget(delete_btn)
-
 class DataTable(QTableWidget):
-    """Tabla de datos con funcionalidades de ordenamiento y filtrado."""
+    """Tabla de datos con funcionalidades de ordenamiento, filtrado y menú contextual."""
     def __init__(self, parent):
         """Inicializa la tabla con columnas y configuraciones."""
         super().__init__(parent)
+        self.app = parent  # Guardamos referencia a ScreenerApp
         self.setColumnCount(7)
         self.setHorizontalHeaderLabels(["Fecha", "Ticker", "Precio", "Cambio %", "Volumen", "Categoría", "Noticia"])
-        self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)  # Permite ajustar columnas
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.horizontalHeader().setMinimumSectionSize(50)
         self.setStyleSheet("""
             QTableWidget {
-                background-color: #191a24;
+                background-color: #2a2a2a;
                 color: #ffffff;
                 selection-background-color: #4a4a4a;
             }
             QHeaderView::section {
-                background-color: #191a24;
+                background-color: #2a2a2a;
                 color: #ffffff;
                 padding: 5px;
                 border: 1px solid #3a3a3a;
             }
         """)
-        self.setEditTriggers(QTableWidget.NoEditTriggers)  # No editable
-        self.horizontalHeader().sectionClicked.connect(self.ordenar_columna)  # Conecta clic a ordenamiento
+        self.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.horizontalHeader().sectionClicked.connect(self.ordenar_columna)
         self.verticalHeader().setStyleSheet("background-color: #2a2a2a; color: #ffffff;")
-        self.sort_orders = {}  # Diccionario para rastrear el orden por columna
+        self.sort_orders = {}
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.mostrar_menu_contextual)
 
-        self.filter_input = QLineEdit(self)  # Campo de filtro en tiempo real
+        self.filter_input = QLineEdit(self)
         self.filter_input.setPlaceholderText("Filtrar por Ticker...")
         self.filter_input.setStyleSheet("background-color: #3a3a3a; color: #ffffff; padding: 5px;")
         self.filter_input.textChanged.connect(self.filtrar_en_tiempo_real)
         self.filter_input.setMaximumWidth(200)
         self.filter_input.move(10, 10)
 
-        self.settings = QSettings("Screener2025", "TableSettings")  # Configuración para guardar tamaños
+        self.settings = QSettings("Screener2025", "TableSettings")
         self.cargar_tamanos()
 
     def cargar_datos(self, datos):
@@ -115,3 +96,39 @@ class DataTable(QTableWidget):
         """Evento que se ejecuta al cerrar la tabla, guarda los tamaños."""
         self.guardar_tamanos()
         super().closeEvent(event)
+
+    def mostrar_menu_contextual(self, pos):
+        """Muestra un menú contextual al hacer clic derecho sobre la tabla."""
+        from gui.utils import show_news
+        menu = QMenu(self)
+        news_action = QAction("ℹ️ Ver Noticia", self)
+        news_action.triggered.connect(lambda: show_news(self))
+        menu.addAction(news_action)
+
+        delete_action = QAction("🗑️ Eliminar", self)
+        delete_action.triggered.connect(lambda: self.app.eliminar_seleccion())  # Usamos self.app en lugar de self.parent()
+        menu.addAction(delete_action)
+
+        copy_action = QAction("📋 Copiar", self)
+        copy_action.triggered.connect(self.copiar_seleccion)
+        menu.addAction(copy_action)
+
+        menu.exec_(self.mapToGlobal(pos))
+
+    def copiar_seleccion(self):
+        """Copia solo las celdas seleccionadas al portapapeles."""
+        selected = self.selectedItems()
+        if not selected:
+            return
+
+        text = ""
+        for item in selected:
+            text += item.text() + "\t"
+        text = text.strip()
+
+        clipboard = QApplication.clipboard()
+        clipboard.setText(text)
+
+    def eliminar_seleccion(self):
+        """Redirige la eliminación al método del padre (no usado directamente aquí)."""
+        self.app.eliminar_seleccion()  # Usamos self.app

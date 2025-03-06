@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QToolBar, QLabel, QAction, QStatusBar
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QMenuBar, QAction, QStatusBar, QMenu
 from PyQt5.QtCore import Qt
 import threading
 from gui.widgets import Sidebar, DataTable
@@ -8,48 +8,66 @@ from gui.utils import export_to_csv
 class ScreenerApp(QMainWindow):
     """Ventana principal de la aplicación Screener 2025."""
     def __init__(self):
-        """Inicializa la ventana con barra de herramientas, tabla y barra de estado."""
+        """Inicializa la ventana con menú desplegable y barra de estado."""
         super().__init__()
         self.setWindowTitle("Screener 2025")
         self.setGeometry(100, 100, 1200, 700)
-        self.setStyleSheet("background-color: #0e0f15; color: #ffffff;")
+        self.setStyleSheet("background-color: #1e1e1e; color: #ffffff;")
 
-        toolbar = QToolBar("Herramientas")
-        toolbar.setStyleSheet("background-color: #0e0f15; spacing: 10px;")
-        self.addToolBar(Qt.TopToolBarArea, toolbar)
+        # Menú desplegable superior con efecto hover
+        menubar = self.menuBar()
+        menubar.setStyleSheet("""
+            QMenuBar {
+                background-color: #2a2a2a;
+                color: #ffffff;
+            }
+            QMenuBar::item {
+                background-color: #2a2a2a;
+                padding: 5px 10px;
+            }
+            QMenuBar::item:selected {
+                background-color: #4a4a4a;
+                color: #ffffff;
+                transition: background-color 0.3s ease;
+            }
+            QMenu {
+                background-color: #2a2a2a;
+                color: #ffffff;
+            }
+            QMenu::item:selected {
+                background-color: #4a4a4a;
+            }
+        """)
+        file_menu = QMenu("Opciones", self)
+        menubar.addMenu(file_menu)
+        
         update_action = QAction("🔄 Actualizar", self)
         update_action.triggered.connect(self.actualizar_datos)
-        toolbar.addAction(update_action)
-        filter_action = QAction("🔍 Filtrar", self)
-        filter_action.triggered.connect(self.abrir_filtros)
-        toolbar.addAction(filter_action)
+        file_menu.addAction(update_action)
+        
         export_action = QAction("💾 Exportar", self)
         export_action.triggered.connect(self.exportar_datos)
-        toolbar.addAction(export_action)
+        file_menu.addAction(export_action)
 
+        filter_action = QAction("🔍 Filtrar", self)
+        filter_action.triggered.connect(self.abrir_filtros)
+        menubar.addAction(filter_action)
+
+        # Widget central
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        stats_widget = QWidget()
-        stats_layout = QHBoxLayout(stats_widget)
-        stats_widget.setStyleSheet("background-color: #191a24; padding: 5px;")
-        self.tickers_label = QLabel("Tickers: 0")
-        self.cambio_label = QLabel("Cambio Promedio: 0%")
-        stats_layout.addWidget(self.tickers_label)
-        stats_layout.addWidget(self.cambio_label)
-        stats_layout.addStretch()
-        main_layout.addWidget(stats_widget)
-
         content_layout = QHBoxLayout()
         self.sidebar = Sidebar(self)
         content_layout.addWidget(self.sidebar, 1)
-        self.table = DataTable(self)
+        self.table = DataTable(self)  # Pasamos self (ScreenerApp) como parent
         content_layout.addWidget(self.table, 4)
         main_layout.addLayout(content_layout)
 
+        # Barra de estado
         self.status_bar = QStatusBar()
-        self.status_bar.setStyleSheet("background-color: #191a24; color: #ffffff;")
+        self.status_bar.setStyleSheet("background-color: #2a2a2a; color: #ffffff;")
         self.setStatusBar(self.status_bar)
         self.table.itemSelectionChanged.connect(self.actualizar_estado)
 
@@ -62,7 +80,6 @@ class ScreenerApp(QMainWindow):
         if conn:
             datos = leer_datos(conn, "TablaFinviz")
             self.table.cargar_datos(datos)
-            self.actualizar_estadisticas(datos)
             conn.close()
 
     def actualizar_datos(self):
@@ -76,7 +93,7 @@ class ScreenerApp(QMainWindow):
         self.status_bar.showMessage("Actualizando datos...")
         buscar_tickers()
         self.cargar_datos()
-        self.status_bar.showMessage("Actualización completada", 3000)  # Muestra por 3 segundos
+        self.status_bar.showMessage("Actualización completada", 3000)
 
     def abrir_filtros(self):
         """Abre la ventana de filtros y aplica los seleccionados."""
@@ -102,19 +119,11 @@ class ScreenerApp(QMainWindow):
             query = " AND ".join(condiciones) if condiciones else None
             datos = leer_datos(conn, "TablaFinviz", query)
             self.table.cargar_datos(datos)
-            self.actualizar_estadisticas(datos)
             conn.close()
 
     def exportar_datos(self):
         """Exporta los datos de la tabla a un archivo CSV."""
         export_to_csv(self.table)
-
-    def actualizar_estadisticas(self, datos):
-        """Actualiza las estadísticas mostradas en el panel superior."""
-        num_tickers = len(datos)
-        cambio_total = sum(float(row[3].strip("%")) for row in datos if row[3]) / num_tickers if num_tickers > 0 else 0
-        self.tickers_label.setText(f"Tickers: {num_tickers}")
-        self.cambio_label.setText(f"Cambio Promedio: {cambio_total:.2f}%")
 
     def actualizar_estado(self):
         """Actualiza la barra de estado con el cambio de la fila seleccionada."""
@@ -126,7 +135,7 @@ class ScreenerApp(QMainWindow):
             self.status_bar.showMessage("Selecciona una fila para ver el cambio")
 
     def eliminar_seleccion(self):
-        """Elimina las filas seleccionadas de la tabla y la base de datos."""
+        """Elimina las filas seleccionadas y recarga los datos."""
         from Base_Datos import conectar, eliminar_datos
         selected = self.table.selectedItems()
         if not selected:
@@ -137,8 +146,10 @@ class ScreenerApp(QMainWindow):
         conn = conectar()
         if conn:
             eliminar_datos(conn, "TablaFinviz", list(tickers))
-            self.cargar_datos()
             conn.close()
+            self.cargar_datos()
+        else:
+            self.status_bar.showMessage("Error al conectar a la base de datos")
 
     def closeEvent(self, event):
         """Guarda los tamaños de columna al cerrar la ventana."""
