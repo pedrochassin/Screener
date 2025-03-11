@@ -8,11 +8,11 @@ translator = GoogleTranslator(source='en', target='es')
 def convertir_volumen(volumen_str):
     volumen_str = volumen_str.replace(".", "")
     if "M" in volumen_str:
-        volumen_str = volumen_str.replace("M", "") + "000000"
+        volumen_str = volumen_str.replace("M", "") + "0000"
     elif "B" in volumen_str:
-        volumen_str = volumen_str.replace("B", "") + "000000000"
+        volumen_str = volumen_str.replace("B", "") + "0000000"
     elif "K" in volumen_str:
-        volumen_str = volumen_str.replace("K", "") + "000"
+        volumen_str = volumen_str.replace("K", "") + "0"
     try:
         return locale.format_string("%d", int(volumen_str), grouping=True)
     except ValueError:

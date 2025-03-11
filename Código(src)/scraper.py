@@ -52,8 +52,8 @@ def obtener_noticias(ticker):
                 if len(columns) >= 2:
                     link_element = columns[1].find("a")
                     texto = link_element.text.strip() if link_element else columns[1].text.strip()
-                    link = "https://finviz.com" + link_element["href"] if link_element else "No hay enlace"
-                    return f"{texto} ({link})"
+                    link = "" + link_element["href"] if link_element else "No hay enlace"
+                    return f"{texto} {link}"
     return "No se encontraron noticias."
 
 def obtener_datos_adicionales(ticker):

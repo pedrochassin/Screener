@@ -23,7 +23,17 @@ def buscar_tickers():
     tickers_sin_noticias = [row[1] for row in leer_datos(conn, "TablaFinviz", "Noticia IS NULL OR Noticia = ''")]
     for ticker in tickers_sin_noticias:
         noticia_en = obtener_noticias(ticker)
-        noticia_es = traducir_texto(noticia_en.split(" (")[0]) + " (" + noticia_en.split(" (")[1] if "(" in noticia_en else noticia_en
+        # Manejo seguro de la división para traducción
+        if "(" in noticia_en and ")" in noticia_en:  # Verificamos que haya un cierre de paréntesis
+            partes = noticia_en.split(" (", 1)  # Dividimos en la primera ocurrencia de " ("
+            if len(partes) > 1 and ")" in partes[1]:  # Aseguramos que haya contenido después del paréntesis
+                texto_base = partes[0]
+                texto_parentesis = "(" + partes[1]
+                noticia_es = traducir_texto(texto_base) + " " + texto_parentesis
+            else:
+                noticia_es = traducir_texto(noticia_en)  # Si falla el formato, traducimos todo
+        else:
+            noticia_es = traducir_texto(noticia_en)  # Si no hay paréntesis, traducimos todo
         actualizar_datos(conn, "TablaFinviz", "Noticia", noticia_es, f"Ticker = '{ticker}'")
 
     tickers_sin_datos = [row[1] for row in leer_datos(conn, "TablaFinviz", "ShsFloat IS NULL OR ShortFloat IS NULL OR ShortRatio IS NULL OR AvgVolume IS NULL OR CashSh IS NULL")]
