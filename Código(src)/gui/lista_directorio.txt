@@ -1,0 +1,16 @@
+ El volumen de la unidad C es Win 10
+ El n£mero de serie del volumen es: 2027-66C2
+
+ Directorio de C:\Users\Admin\Documents\Screener 2025\C¢digo(src)\gui
+
+11/03/2025  06:32 p. m.    <DIR>          .
+11/03/2025  06:28 p. m.    <DIR>          ..
+11/03/2025  05:59 p. m.             8,089 app.py
+11/03/2025  05:59 p. m.             2,122 filters.py
+11/03/2025  06:32 p. m.                 0 lista_directorio.txt
+11/03/2025  05:59 p. m.             2,157 utils.py
+11/03/2025  05:59 p. m.             8,354 widgets.py
+11/03/2025  05:59 p. m.                 0 _init_.py
+11/03/2025  05:59 p. m.    <DIR>          __pycache__
+               6 archivos         20,722 bytes
+               3 dirs  540,717,436,928 bytes libres

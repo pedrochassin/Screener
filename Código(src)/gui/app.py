@@ -4,6 +4,8 @@ import threading
 from gui.widgets import DataTable
 from gui.filters import FilterDialog
 from gui.utils import export_to_csv
+from Base_Datos import conectar, leer_datos  # Mantengo las importaciones originales
+from main import buscar_tickers             # Mantengo las importaciones originales
 
 class WorkerSignals(QObject):
     """Clase auxiliar para emitir señales desde el hilo de actualización."""
@@ -86,7 +88,6 @@ class ScreenerApp(QMainWindow):
 
     def cargar_datos(self):
         """Carga datos iniciales desde la base de datos a la tabla."""
-        from Base_Datos import conectar, leer_datos
         conn = conectar()
         if conn:
             datos = leer_datos(conn, "TablaFinviz")
@@ -108,8 +109,6 @@ class ScreenerApp(QMainWindow):
         signals.progress.connect(self.progress_bar.setValue)
         signals.message.connect(self.status_bar.showMessage)
         signals.finished.connect(self._actualizacion_completada)
-
-        from main import buscar_tickers
 
         # Simulamos el progreso
         signals.message.emit("Actualizando datos...")
@@ -134,7 +133,6 @@ class ScreenerApp(QMainWindow):
 
     def aplicar_filtro(self, filtros):
         """Filtra los datos según los criterios seleccionados."""
-        from Base_Datos import conectar, leer_datos
         conn = conectar()
         if conn:
             condiciones = []
@@ -166,7 +164,7 @@ class ScreenerApp(QMainWindow):
 
     def eliminar_seleccion(self):
         """Elimina las filas seleccionadas y recarga los datos."""
-        from Base_Datos import conectar, eliminar_datos
+        from Base_Datos import conectar, eliminar_datos  # Importación local para evitar circularidad
         selected = self.table.selectedItems()
         if not selected:
             self.status_bar.showMessage("No hay filas seleccionadas para eliminar")

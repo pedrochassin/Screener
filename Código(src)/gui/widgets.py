@@ -30,11 +30,10 @@ class DataTable(QTableWidget):
         """
         super().__init__(parent)
         self.app = parent  # Guardamos referencia a ScreenerApp
-        self.setColumnCount(12)  # Número de columnas en la tabla
+        self.setColumnCount(13)  # Número de columnas en la tabla
         self.setHorizontalHeaderLabels([
             "Fecha", "Ticker", "Precio", "Cambio %", "Volumen", "Vacío", "Categoría", "Noticia",
-            "ShsFloat", "ShortFloat", "ShortRatio", "AvgVolume", "CashSh"
-        ])  # Encabezados de las columnas
+            "ShsFloat", "ShortFloat", "ShortRatio", "AvgVolume", "CashSh"])  # Encabezados de las columnas
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.horizontalHeader().setMinimumSectionSize(50)
         self.setStyleSheet("""

@@ -1,0 +1,16 @@
+ El volumen de la unidad C es Win 10
+ El n£mero de serie del volumen es: 2027-66C2
+
+ Directorio de C:\Users\Admin\Documents\Screener 2025
+
+11/03/2025  06:25 p. m.    <DIR>          .
+27/02/2025  09:45 a. m.    <DIR>          ..
+27/02/2025  10:00 a. m.                 9 .gitignore
+27/02/2025  04:31 p. m.               129 config.ini
+11/03/2025  05:59 p. m.    <DIR>          C¢digo(src)
+11/03/2025  05:59 p. m.               817 lista.txt
+11/03/2025  06:27 p. m.                 0 lista_directorio.txt
+11/03/2025  05:59 p. m.             1,912 README.md
+27/02/2025  04:14 p. m.    <DIR>          Screener
+               5 archivos          2,867 bytes
+               4 dirs  540,732,276,736 bytes libres
