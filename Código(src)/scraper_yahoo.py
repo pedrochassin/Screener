@@ -1,59 +1,58 @@
 import yfinance as yf
 from Base_Datos import conectar, leer_datos
 import time
-from datetime import datetime
+import threading
+from datetime import datetime, timedelta
 from pytz import timezone
-from datetime import datetime
 
+# Obtiene la hora actual en la zona horaria del este de EE.UU.
 def obtener_hora_actual():
-    return datetime.now(timezone("US/Eastern"))  # Horario de Nueva York
+    return datetime.now(timezone("US/Eastern"))
 
-
+# Obtiene los tickers y sus fechas desde la base de datos
 def obtener_tickers_y_fechas():
-    """Obtiene todos los tickers y fechas de TablaFinviz."""
     conn = conectar()
     if conn:
         try:
             datos = leer_datos(conn, "TablaFinviz")
-            tickers_fechas = [(row[1], row[0]) for row in datos]  # Ticker (índice 1), Fecha (índice 0)
+            tickers_fechas = [(row[1], row[0]) for row in datos]
+            print(f"[DEBUG] Tickers y fechas obtenidos: {len(tickers_fechas)} registros")
             return tickers_fechas
         except Exception as e:
-            print(f"Error al leer tickers y fechas: {e}")
+            print(f"[DEBUG] Error al leer tickers y fechas: {e}")
         finally:
             conn.close()
     return []
 
+# Obtiene el volumen acumulado del día actual para un ticker
 def scrapear_volumen_actual(ticker):
-    """Scrapea el volumen actual (último minuto) del día actual."""
     try:
         stock = yf.Ticker(ticker)
+        # Usa period="1d" para obtener el volumen acumulado del día actual
         hist = stock.history(period="1d", interval="1d")
-        print(f"Datos recibidos para {ticker}:\n{hist.tail(5)}")  # 🔎 Verifica los últimos 5 registros
+        print(f"[DEBUG] Datos diarios para {ticker}: {hist.tail(1)}")
         if hist.empty:
-            print(f"No se encontraron datos intradiarios para {ticker}")
+            print(f"[DEBUG] No se encontraron datos para {ticker}")
             return None
-        
-        # Asegúrate de que 'Volume' no esté vacío ni sea NaN
         if 'Volume' in hist.columns and not hist['Volume'].isnull().all():
             volumen = int(hist['Volume'].dropna().iloc[-1])
-            return volumen
+            return volumen if volumen > 0 else None
         else:
-            print(f"Volumen vacío para {ticker}")
-            return 0
+            print(f"[DEBUG] Volumen vacío para {ticker}")
+            return None
     except Exception as e:
-        print(f"Error al scrapear volumen actual para {ticker}: {e}")
+        print(f"[DEBUG] Error al scrapear volumen para {ticker}: {e}")
         return None
 
-
+# Obtiene los datos históricos de un ticker en una fecha específica
 def scrapear_datos_historicos(ticker, fecha):
-    """Scrapea Open, Close, High, Low para una fecha específica."""
     try:
         stock = yf.Ticker(ticker)
         if isinstance(fecha, str):
             fecha = datetime.strptime(fecha, "%Y-%m-%d")
         hist = stock.history(start=fecha, end=fecha + timedelta(days=1))
         if hist.empty:
-            print(f"No se encontraron datos históricos para {ticker} en {fecha}")
+            print(f"[DEBUG] No datos históricos para {ticker} en {fecha}")
             return None
         datos = {
             "Open": float(hist["Open"].iloc[0]),
@@ -61,13 +60,14 @@ def scrapear_datos_historicos(ticker, fecha):
             "High": float(hist["High"].iloc[0]),
             "Low": float(hist["Low"].iloc[0])
         }
+        print(f"[DEBUG] Datos históricos para {ticker}: {datos}")
         return datos
     except Exception as e:
-        print(f"Error al scrapear datos históricos para {ticker}: {e}")
+        print(f"[DEBUG] Error al scrapear datos históricos para {ticker}: {e}")
         return None
 
+# Actualiza los datos históricos de un ticker en la base de datos
 def actualizar_datos_historicos(ticker, datos_historicos):
-    """Actualiza los datos históricos solo una vez."""
     conn = conectar()
     if conn:
         try:
@@ -89,15 +89,15 @@ def actualizar_datos_historicos(ticker, datos_historicos):
             )
             cursor.execute(query, valores)
             conn.commit()
-            print(f"Datos históricos actualizados para {ticker}")
+            print(f"[DEBUG] Datos históricos actualizados para {ticker}")
         except Exception as e:
-            print(f"Error al actualizar datos históricos para {ticker}: {e}")
+            print(f"[DEBUG] Error al actualizar datos históricos para {ticker}: {e}")
         finally:
             cursor.close()
             conn.close()
 
+# Actualiza el volumen actual de un ticker en la base de datos
 def actualizar_volumen_actual(ticker, volumen_actual):
-    """Actualiza solo VolumenActual en cada iteración."""
     conn = conectar()
     if conn:
         try:
@@ -107,42 +107,75 @@ def actualizar_volumen_actual(ticker, volumen_actual):
             SET [VolumenActual] = ?
             WHERE [Ticker] = ?
             """
-            valores = (volumen_actual, ticker)
+            valores = (volumen_actual if volumen_actual is not None else None, ticker)
             cursor.execute(query, valores)
             conn.commit()
-            print(f"Volumen actual actualizado para {ticker}: {volumen_actual}")
+            print(f"[DEBUG] Volumen actualizado para {ticker}: {volumen_actual}")
         except Exception as e:
-            print(f"Error al actualizar volumen para {ticker}: {e}")
+            print(f"[DEBUG] Error al actualizar volumen para {ticker}: {e}")
         finally:
             cursor.close()
             conn.close()
 
+# Ejecuta el procedimiento almacenado que calcula Rvol y Return
+def ejecutar_procedimiento():
+    conn = conectar()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("EXEC CalcularRvolYReturn;")
+            conn.commit()
+            print(f"[DEBUG] Procedimiento almacenado ejecutado con éxito.")
+        except Exception as e:
+            print(f"[DEBUG] Error al ejecutar el procedimiento almacenado: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+# Función para manejar la actualización periódica del VolumenActual
+def actualizar_volumen_continuo(intervalo_segundos=3600):
+    while True:  # Bucle infinito para actualizaciones continuas
+        tickers_fechas = obtener_tickers_y_fechas()
+        if not tickers_fechas:
+            print("[DEBUG] No se encontraron tickers para actualizar VolumenActual.")
+            time.sleep(intervalo_segundos)
+            continue
+
+        print(f"[DEBUG] Actualizando VolumenActual a las {datetime.now()}")
+        for ticker, _ in tickers_fechas:
+            volumen_actual = scrapear_volumen_actual(ticker)
+            if volumen_actual is not None:
+                actualizar_volumen_actual(ticker, volumen_actual)
+        ejecutar_procedimiento()
+
+        print(f"[DEBUG] Esperando {intervalo_segundos // 60} minutos para la próxima actualización...")
+        time.sleep(intervalo_segundos)
+
+# Función principal que gestiona el flujo de actualización de datos
 def main():
-    """Scrapea datos históricos una vez y actualiza VolumenActual cada minuto."""
     tickers_fechas = obtener_tickers_y_fechas()
     if not tickers_fechas:
-        print("No se encontraron tickers en TablaFinviz.")
+        print("[DEBUG] No se encontraron tickers en TablaFinviz.")
         return
-    
-    # Actualización inicial de datos históricos
-    print("Realizando actualización inicial de datos históricos...")
+
+    print("[DEBUG] Iniciando actualización inicial de datos históricos...")
     for ticker, fecha in tickers_fechas:
         datos_historicos = scrapear_datos_historicos(ticker, fecha)
         if datos_historicos:
             actualizar_datos_historicos(ticker, datos_historicos)
-    
-    # Bucle para actualizar solo VolumenActual cada minuto
-    print("Iniciando actualización continua de VolumenActual...")
-    while True:
-        print(f"Actualizando VolumenActual a las {datetime.now()}")
-        for ticker, _ in tickers_fechas:  # Ignoramos fecha aquí
-            volumen_actual = scrapear_volumen_actual(ticker)
-            if volumen_actual is not None:
-                actualizar_volumen_actual(ticker, volumen_actual)
-        
-        print("Esperando 1 hora para la próxima actualización...")
-        time.sleep(3600)  # Espera 1 hora antes de la próxima actualización
+
+    print("[DEBUG] Iniciando actualización inicial de VolumenActual...")
+    for ticker, _ in tickers_fechas:
+        volumen_actual = scrapear_volumen_actual(ticker)
+        if volumen_actual is not None:
+            actualizar_volumen_actual(ticker, volumen_actual)
+
+    print("[DEBUG] Ejecutando procedimiento almacenado inicial...")
+    ejecutar_procedimiento()
+
+    print("[DEBUG] Iniciando actualización periódica de VolumenActual cada hora en segundo plano...")
+    hilo_volumen = threading.Thread(target=actualizar_volumen_continuo, args=(3600,), daemon=True)
+    hilo_volumen.start()
 
 if __name__ == "__main__":
-    from datetime import timedelta
     main()

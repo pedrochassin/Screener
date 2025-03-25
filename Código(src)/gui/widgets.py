@@ -30,10 +30,10 @@ class DataTable(QTableWidget):
         """
         super().__init__(parent)
         self.app = parent  # Guardamos referencia a ScreenerApp
-        self.setColumnCount(13)  # Número de columnas en la tabla
+        self.setColumnCount(20)  # Número de columnas en la tabla
         self.setHorizontalHeaderLabels([
             "Fecha", "Ticker", "Precio", "Cambio %", "Volumen", "Vacío", "Categoría", "Noticia",
-            "ShsFloat", "ShortFloat", "ShortRatio", "AvgVolume", "CashSh"])  # Encabezados de las columnas
+            "ShsFloat", "ShortFloat", "ShortRatio", "AvgVolume", "CashSh", "VolumenActual", "Open", "Close", "High", "Low", "Rvol", "Return" ])  # Encabezados de las columnas
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.horizontalHeader().setMinimumSectionSize(50)
         self.setStyleSheet("""
@@ -79,7 +79,17 @@ class DataTable(QTableWidget):
             row = self.rowCount()
             self.insertRow(row)
             for col, value in enumerate(fila):
-                if col in [2, 3, 4, 8, 9, 10, 11]:  # Columnas numéricas
+                if col == 13:  # Columna VolumenActual
+                    try:
+                        # Formatear el valor con separadores de miles
+                        formatted_value = "{:,}".format(int(value))
+                        item = QTableWidgetItem(formatted_value)
+                        # Guardamos el valor numérico original para ordenamiento
+                        item.setData(Qt.UserRole, float(value))
+                    except (ValueError, TypeError):
+                        item = QTableWidgetItem(str(value) if value is not None else "")
+                        item.setData(Qt.UserRole, 0.0)
+                elif col in [2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]:  # Otras columnas numéricas
                     item = NumericTableWidgetItem(str(value))
                     item.setData(Qt.UserRole, self.parse_number(str(value)))
                 else:
@@ -100,7 +110,17 @@ class DataTable(QTableWidget):
                 row = self.rowCount()
                 self.insertRow(row)
                 for col, value in enumerate(fila):
-                    if col in [2, 3, 4, 8, 9, 10, 11]:  # Columnas numéricas
+                    if col == 13:  # Columna VolumenActual
+                        try:
+                            # Formatear el valor con separadores de miles
+                            formatted_value = "{:,}".format(int(value))
+                            item = QTableWidgetItem(formatted_value)
+                            # Guardamos el valor numérico original para ordenamiento
+                            item.setData(Qt.UserRole, float(value))
+                        except (ValueError, TypeError):
+                            item = QTableWidgetItem(str(value) if value is not None else "")
+                            item.setData(Qt.UserRole, 0.0)
+                    elif col in [2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]:  # Otras columnas numéricas
                         item = NumericTableWidgetItem(str(value))
                         item.setData(Qt.UserRole, self.parse_number(str(value)))
                     else:

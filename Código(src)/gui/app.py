@@ -1,29 +1,71 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QMenuBar, QAction, QStatusBar, QMenu, QProgressBar
-from PyQt5.QtCore import Qt, QObject, pyqtSignal
+from PyQt5.QtCore import Qt, QObject, pyqtSignal, QTimer, QThread
 import threading
-from gui.widgets import DataTable
-from gui.filters import FilterDialog
-from gui.utils import export_to_csv
-from Base_Datos import conectar, leer_datos  # Mantengo las importaciones originales
-from main import buscar_tickers             # Mantengo las importaciones originales
+import traceback
+import time
+from .widgets import DataTable
+from .filters import FilterDialog
+from .utils import export_to_csv
+from Base_Datos import conectar, leer_datos
+from archivo.main import buscar_tickers
+from scraper_yahoo import main as actualizar_volumen_y_datos
 
 class WorkerSignals(QObject):
-    """Clase auxiliar para emitir señales desde el hilo de actualización."""
-    progress = pyqtSignal(int)  # Señal para actualizar el valor de progreso
-    message = pyqtSignal(str)   # Señal para actualizar el mensaje en la barra de estado
-    finished = pyqtSignal()     # Señal para indicar que el proceso ha terminado
+    progress = pyqtSignal(int)
+    message = pyqtSignal(str)
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+
+class WorkerActualizarDatos(QObject):
+    progress = pyqtSignal(int)
+    message = pyqtSignal(str)
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+
+    def run(self):
+        try:
+            # Iniciar inmediatamente con un mensaje y progreso visible
+            self.message.emit("Iniciando actualización de datos...")
+            self.progress.emit(0)
+            time.sleep(0.01)  # Pausa mínima para que la UI refleje el inicio
+
+            # Simular progreso inicial antes de buscar_tickers()
+            for i in range(0, 20, 2):  # Subir rápidamente de 0% a 20%
+                self.progress.emit(i)
+                time.sleep(0.02)  # Pausa corta para un inicio rápido
+
+            self.message.emit("Actualizando datos...")
+            buscar_tickers()  # Ejecuta la función de actualización
+            for i in range(20, 50, 2):  # Continuar de 20% a 50% más lentamente
+                self.progress.emit(i)
+                time.sleep(0.05)  # Pausa más larga para simular trabajo
+
+            # Transición a la siguiente fase
+            self.message.emit("Actualizando volumen y datos históricos...")
+            time.sleep(0.01)  # Pausa mínima para que la UI actualice
+
+            # Simular progreso inicial para actualizar_volumen_y_datos()
+            for i in range(50, 70, 2):  # Subir de 50% a 70% rápidamente
+                self.progress.emit(i)
+                time.sleep(0.02)  # Pausa corta para continuidad
+
+            actualizar_volumen_y_datos()  # Ejecuta la actualización de volumen
+            for i in range(70, 100, 2):  # Finalizar de 70% a 100%
+                self.progress.emit(i)
+                time.sleep(0.05)  # Pausa más larga para simular trabajo
+
+            self.finished.emit()
+        except Exception as e:
+            error_msg = f"Error durante la actualización: {str(e)}\n{traceback.format_exc()}"
+            self.error.emit(error_msg)
 
 class ScreenerApp(QMainWindow):
-    """Ventana principal de la aplicación Screener 2025."""
-    
     def __init__(self):
-        """Inicializa la ventana con menú desplegable, barra de estado y barra de progreso."""
         super().__init__()
         self.setWindowTitle("Screener 2025")
         self.setGeometry(100, 100, 1200, 700)
         self.setStyleSheet("background-color: #0e0f15; color: #ffffff;")
 
-        # Menú desplegable superior con efecto hover
         menubar = self.menuBar()
         menubar.setStyleSheet("""
             QMenuBar {
@@ -62,99 +104,128 @@ class ScreenerApp(QMainWindow):
         filter_action.triggered.connect(self.abrir_filtros)
         menubar.addAction(filter_action)
 
-        # Widget central
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        # Añadimos solo la tabla al layout principal
         self.table = DataTable(self)
         main_layout.addWidget(self.table)
 
-        # Barra de estado con barra de progreso
         self.status_bar = QStatusBar()
         self.status_bar.setStyleSheet("background-color: #2a2a2a; color: #ffffff;")
         self.setStatusBar(self.status_bar)
         self.table.itemSelectionChanged.connect(self.actualizar_estado)
 
-        # Añadimos la barra de progreso a la barra de estado
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setStyleSheet("QProgressBar { border: 1px solid #4a4a4a; background-color: #3a3a3a; color: #ffffff; text-align: center; } QProgressBar::chunk { background-color: #1e90ff; }")
         self.progress_bar.setMaximumWidth(200)
-        self.progress_bar.setVisible(False)  # Oculta por defecto
+        self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
+
+        # Temporizador para recargar datos después de actualizaciones manuales
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.cargar_datos)
+        self.update_count = 0
+        self.max_updates = 5
+
+        # Temporizador para refrescar la tabla periódicamente (cada 5 minutos)
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self.cargar_datos)
+        self.refresh_timer.start(300000)  # 300000 ms = 5 minutos
 
         self.cargar_datos()
 
     def cargar_datos(self):
-        """Carga datos iniciales desde la base de datos a la tabla."""
+        if self.update_count >= self.max_updates and not self.refresh_timer.isActive():
+            self.timer.stop()
+            self.status_bar.showMessage("Número máximo de actualizaciones alcanzado", 5000)
+            return
+
         conn = conectar()
         if conn:
-            datos = leer_datos(conn, "TablaFinviz")
-            self.table.cargar_datos(datos)
-            conn.close()
+            try:
+                datos = leer_datos(conn, "TablaFinviz")
+                # Truncar datos largos manualmente antes de mostrarlos (si es necesario)
+                for row in datos:
+                    if isinstance(row, dict) and 'Noticia' in row and row['Noticia']:
+                        row['Noticia'] = row['Noticia'][:255]
+                    elif isinstance(row, tuple):
+                        row = list(row)
+                        if len(row) > 5:  # Ajusta según el índice de 'Noticia'
+                            row[5] = row[5][:255] if row[5] else row[5]
+                self.table.cargar_datos(datos)
+            except Exception as e:
+                self.status_bar.showMessage(f"Error al cargar datos: {str(e)}", 10000)
+            finally:
+                conn.close()
+        
+        self.update_count += 1
 
     def actualizar_datos(self):
-        """Inicia un hilo para actualizar los datos y muestra la barra de progreso."""
-        self.status_bar.showMessage("Iniciando actualización...")
+        self.status_bar.showMessage("Iniciando actualización completa...")
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
-        threading.Thread(target=self._actualizar_datos_thread, daemon=True).start()
+        self.thread = QThread()
+        self.worker = WorkerActualizarDatos()
+        self.worker.moveToThread(self.thread)
 
-    def _actualizar_datos_thread(self):
-        """Actualiza los datos en la base y recarga la tabla, emitiendo señales de progreso."""
-        signals = WorkerSignals()
+        self.thread.started.connect(self.worker.run)
+        self.worker.progress.connect(self.progress_bar.setValue)
+        self.worker.message.connect(self.status_bar.showMessage)
+        self.worker.finished.connect(self._actualizacion_completada)
+        self.worker.error.connect(self._mostrar_error)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
 
-        # Conectar señales a slots en el hilo principal
-        signals.progress.connect(self.progress_bar.setValue)
-        signals.message.connect(self.status_bar.showMessage)
-        signals.finished.connect(self._actualizacion_completada)
-
-        # Simulamos el progreso
-        signals.message.emit("Actualizando datos...")
-        signals.progress.emit(10)  # 10% - Inicio
-        buscar_tickers()           # Proceso de scraping y actualización
-        signals.progress.emit(70)  # 70% - Scraping completado
-        self.cargar_datos()        # Carga los datos en la tabla
-        signals.progress.emit(100) # 100% - Todo terminado
-        signals.finished.emit()
+        self.thread.start()
 
     def _actualizacion_completada(self):
-        """Acción al completar la actualización: muestra mensaje y oculta la barra de progreso."""
-        self.status_bar.showMessage("Actualización completada", 3000)
+        self.status_bar.showMessage("Actualización completa finalizada", 3000)
+        self.progress_bar.setValue(100)  # Asegurar que la barra llegue al 100%
         self.progress_bar.setVisible(False)
+        self.update_count = 0
+        self.cargar_datos()
+        if not self.refresh_timer.isActive():
+            self.refresh_timer.start(300000)
+
+    def _mostrar_error(self, error_msg):
+        self.status_bar.showMessage(error_msg, 10000)
+        print(error_msg)
+        self.progress_bar.setVisible(False)
+        self.timer.stop()
 
     def abrir_filtros(self):
-        """Abre la ventana de filtros y aplica los seleccionados."""
         dialog = FilterDialog(self)
         if dialog.exec_():
             filtros = dialog.obtener_filtros()
             self.aplicar_filtro(filtros)
 
     def aplicar_filtro(self, filtros):
-        """Filtra los datos según los criterios seleccionados."""
         conn = conectar()
         if conn:
-            condiciones = []
-            if filtros["ticker"]:
-                condiciones.append(f"Ticker LIKE '%{filtros['ticker']}%'")
-            if filtros["cambio"]:
-                condiciones.append(f"CAST(CambioPorcentaje AS FLOAT) {filtros['cambio_operador']} {filtros['cambio']}")
-            if filtros["volumen"]:
-                condiciones.append(f"CAST(REPLACE(Volumen, ',', '') AS BIGINT) {filtros['volumen_operador']} {filtros['volumen']}")
-            if filtros["categoria"]:
-                condiciones.append(f"Categoria LIKE '%{filtros['categoria']}%'")
-            query = " AND ".join(condiciones) if condiciones else None
-            datos = leer_datos(conn, "TablaFinviz", query)
-            self.table.cargar_datos(datos)
-            conn.close()
+            try:
+                condiciones = []
+                if filtros["ticker"]:
+                    condiciones.append(f"Ticker LIKE '%{filtros['ticker']}%'")
+                if filtros["cambio"]:
+                    condiciones.append(f"CAST(CambioPorcentaje AS FLOAT) {filtros['cambio_operador']} {filtros['cambio']}")
+                if filtros["volumen"]:
+                    condiciones.append(f"CAST(REPLACE(Volumen, ',', '') AS BIGINT) {filtros['volumen_operador']} {filtros['volumen']}")
+                if filtros["categoria"]:
+                    condiciones.append(f"Categoria LIKE '%{filtros['categoria']}%'")
+                query = " AND ".join(condiciones) if condiciones else None
+                datos = leer_datos(conn, "TablaFinviz", query)
+                self.table.cargar_datos(datos)
+            except Exception as e:
+                self.status_bar.showMessage(f"Error al aplicar filtro: {str(e)}", 10000)
+            finally:
+                conn.close()
 
     def exportar_datos(self):
-        """Exporta los datos de la tabla a un archivo CSV."""
         export_to_csv(self.table)
 
     def actualizar_estado(self):
-        """Actualiza la barra de estado con el cambio de la fila seleccionada."""
         selected = self.table.selectedItems()
         if selected:
             cambio = self.table.item(selected[0].row(), 3).text()
@@ -163,23 +234,24 @@ class ScreenerApp(QMainWindow):
             self.status_bar.showMessage("Selecciona una fila para ver el cambio")
 
     def eliminar_seleccion(self):
-        """Elimina las filas seleccionadas y recarga los datos."""
-        from Base_Datos import conectar, eliminar_datos  # Importación local para evitar circularidad
+        from Base_Datos import conectar, eliminar_datos
         selected = self.table.selectedItems()
         if not selected:
             self.status_bar.showMessage("No hay filas seleccionadas para eliminar")
             return
-
         tickers = {self.table.item(item.row(), 1).text() for item in selected}
         conn = conectar()
         if conn:
-            eliminar_datos(conn, "TablaFinviz", list(tickers))
-            conn.close()
-            self.cargar_datos()
-        else:
-            self.status_bar.showMessage("Error al conectar a la base de datos")
+            try:
+                eliminar_datos(conn, "TablaFinviz", list(tickers))
+                self.cargar_datos()
+            except Exception as e:
+                self.status_bar.showMessage(f"Error al eliminar selección: {str(e)}", 10000)
+            finally:
+                conn.close()
 
     def closeEvent(self, event):
-        """Guarda los tamaños de columna al cerrar la ventana."""
+        self.timer.stop()
+        self.refresh_timer.stop()
         self.table.guardar_tamanos()
         super().closeEvent(event)

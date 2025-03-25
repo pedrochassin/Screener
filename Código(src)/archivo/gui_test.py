@@ -73,7 +73,7 @@ class ScreenerApp:
         threading.Thread(target=self._actualizar_datos_thread, daemon=True).start()
 
     def _actualizar_datos_thread(self):
-        from main import buscar_tickers
+        from archivo.main import buscar_tickers
         buscar_tickers()
         self.cargar_datos()
 

@@ -1,7 +1,7 @@
 import schedule
 import time
 import datetime
-from main import buscar_tickers
+from archivo.main import buscar_tickers
 
 def es_dia_habil():
     """Verifica si hoy es un día hábil (lunes a viernes)."""
