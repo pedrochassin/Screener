@@ -83,13 +83,13 @@ class DataTable(QTableWidget):
                     try:
                         # Formatear el valor con separadores de miles
                         formatted_value = "{:,}".format(int(value))
-                        item = QTableWidgetItem(formatted_value)
+                        item = NumericTableWidgetItem(formatted_value)
                         # Guardamos el valor numérico original para ordenamiento
                         item.setData(Qt.UserRole, float(value))
                     except (ValueError, TypeError):
-                        item = QTableWidgetItem(str(value) if value is not None else "")
+                        item = NumericTableWidgetItem(str(value) if value is not None else "")
                         item.setData(Qt.UserRole, 0.0)
-                elif col in [2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]:  # Otras columnas numéricas
+                elif col in [2, 3, 4, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19]:  # Otras columnas numéricas
                     item = NumericTableWidgetItem(str(value))
                     item.setData(Qt.UserRole, self.parse_number(str(value)))
                 else:
@@ -114,13 +114,13 @@ class DataTable(QTableWidget):
                         try:
                             # Formatear el valor con separadores de miles
                             formatted_value = "{:,}".format(int(value))
-                            item = QTableWidgetItem(formatted_value)
+                            item = NumericTableWidgetItem(formatted_value)
                             # Guardamos el valor numérico original para ordenamiento
                             item.setData(Qt.UserRole, float(value))
                         except (ValueError, TypeError):
-                            item = QTableWidgetItem(str(value) if value is not None else "")
+                            item = NumericTableWidgetItem(str(value) if value is not None else "")
                             item.setData(Qt.UserRole, 0.0)
-                    elif col in [2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]:  # Otras columnas numéricas
+                    elif col in [2, 3, 4, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19]:  # Otras columnas numéricas
                         item = NumericTableWidgetItem(str(value))
                         item.setData(Qt.UserRole, self.parse_number(str(value)))
                     else:
