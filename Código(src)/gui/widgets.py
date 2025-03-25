@@ -33,9 +33,13 @@ class DataTable(QTableWidget):
         self.setColumnCount(20)  # Número de columnas en la tabla
         self.setHorizontalHeaderLabels([
             "Fecha", "Ticker", "Precio", "Cambio %", "Volumen", "Vacío", "Categoría", "Noticia",
-            "ShsFloat", "ShortFloat", "ShortRatio", "AvgVolume", "CashSh", "VolumenActual", "Open", "Close", "High", "Low", "Rvol", "Return" ])  # Encabezados de las columnas
+            "ShsFloat", "ShortFloat", "ShortRatio", "AvgVolume", "CashSh", "VolumenActual", "Open", "Close", "High", "Low", "Rvol", "Return"
+        ])  # Encabezados de las columnas
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.horizontalHeader().setMinimumSectionSize(50)
+        self.horizontalHeader().setSectionsMovable(True)  # Permitir mover columnas
+        self.horizontalHeader().sectionMoved.connect(self.guardar_posiciones_columnas)  # Conectar señal para guardar posiciones
+
         self.setStyleSheet("""
             QTableWidget {
                 background-color: #12131b;
@@ -65,6 +69,7 @@ class DataTable(QTableWidget):
 
         self.settings = QSettings("Screener2025", "TableSettings")
         self.cargar_tamanos()
+        self.cargar_posiciones_columnas()  # Cargar posiciones de columnas al iniciar
 
     def cargar_datos(self, datos):
         """
@@ -173,14 +178,35 @@ class DataTable(QTableWidget):
         for col in range(self.columnCount()):
             self.settings.setValue(f"column_{col}", self.columnWidth(col))
 
+    def guardar_posiciones_columnas(self):
+        """
+        Guarda las posiciones actuales de las columnas en QSettings.
+        """
+        header = self.horizontalHeader()
+        posiciones = [header.logicalIndex(i) for i in range(header.count())]
+        self.settings.setValue("column_positions", posiciones)
+
+    def cargar_posiciones_columnas(self):
+        """
+        Carga las posiciones de las columnas desde QSettings.
+        """
+        posiciones = self.settings.value("column_positions", None)
+        if posiciones:
+            # Asegurarse de que las posiciones sean una lista de enteros
+            posiciones = [int(pos) for pos in posiciones]
+            header = self.horizontalHeader()
+            for visual_index, logical_index in enumerate(posiciones):
+                header.moveSection(header.visualIndex(logical_index), visual_index)
+
     def closeEvent(self, event):
         """
-        Ejecuta acciones al cerrar la tabla, como guardar los tamaños de columna.
+        Ejecuta acciones al cerrar la tabla, como guardar los tamaños y posiciones de las columnas.
         
         Args:
             event (QCloseEvent): Evento de cierre.
         """
         self.guardar_tamanos()
+        self.guardar_posiciones_columnas()
         super().closeEvent(event)
 
     def mostrar_menu_contextual(self, pos):

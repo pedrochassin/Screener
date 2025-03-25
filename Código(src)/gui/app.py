@@ -1,7 +1,5 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QMenuBar, QAction, QStatusBar, QMenu, QProgressBar, QStyledItemDelegate, QStyleOptionViewItem, QStyle, QTableWidgetItem
-from PyQt5.QtCore import Qt, QObject, pyqtSignal, QTimer, QThread, QRect
-from PyQt5.QtGui import QColor, QPainter, QBrush
-from datetime import datetime
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QMenuBar, QAction, QStatusBar, QMenu, QProgressBar
+from PyQt5.QtCore import Qt, QObject, pyqtSignal, QTimer, QThread
 import threading
 import traceback
 import time
@@ -11,6 +9,7 @@ from .utils import export_to_csv
 from Base_Datos import conectar, leer_datos
 from archivo.main import buscar_tickers
 from scraper_yahoo import main as actualizar_volumen_y_datos
+from .table_customization import customize_table, apply_delegate, apply_custom_rounded  # Importar funciones de personalización
 
 class WorkerSignals(QObject):
     progress = pyqtSignal(int)
@@ -57,83 +56,28 @@ class WorkerActualizarDatos(QObject):
             error_msg = f"Error durante la actualización: {str(e)}\n{traceback.format_exc()}"
             self.error.emit(error_msg)
 
-class RoundedRectDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None, date_column=0, target_columns=None):
-        super().__init__(parent)
-        self.date_column = date_column
-        self.target_columns = target_columns if target_columns is not None else []
-
-    def paint(self, painter, option, index):
-        if index.column() in self.target_columns:
-            table = self.parent()
-            date_item = table.item(index.row(), self.date_column)
-            hoy = datetime.now().strftime("%Y-%m-%d")
-            if date_item and date_item.text() == hoy:
-                painter.save()
-
-                background_color = QColor("#0e2524")
-                radius = 10
-
-                painter.setRenderHint(QPainter.Antialiasing)
-                brush = QBrush(background_color)
-                painter.setBrush(brush)
-                painter.setPen(Qt.NoPen)
-
-                rect = QRect(option.rect.adjusted(2, 2, -2, -2))
-                painter.drawRoundedRect(rect, radius, radius)
-
-                painter.restore()
-
-        option_copy = QStyleOptionViewItem(option)
-        self.initStyleOption(option_copy, index)
-        if index.column() in self.target_columns and date_item and date_item.text() == hoy:
-            # Centrar el texto horizontalmente
-            option_copy.textAlignment = Qt.AlignCenter
-            option_copy.textAlignment = Qt.AlignCenter | Qt.AlignVCenter
-            # Cambiar el color del texto
-            option_copy.palette.setColor(option_copy.palette.Text, QColor("#00f4cf"))
-
-        painter.save()
-        self.parent().style().drawControl(QStyle.CE_ItemViewItem, option_copy, painter, self.parent())
-        painter.restore()
-
 class ScreenerApp(QMainWindow):
-    def __init__(self): 
+    def __init__(self):
         super().__init__()
         self.setWindowTitle("Screener 2025")
         self.setGeometry(100, 100, 1200, 700)
         self.setStyleSheet("background-color: #0e0f15; color: #ffffff;")
-    
+
         menubar = self.menuBar()
         menubar.setStyleSheet("""
-            QMenuBar {
-                background-color: #0e0f15;
-                color: #ffffff;
-            }
-            QMenuBar::item {
-                background-color: #0e0f15;
-                padding: 5px 10px;
-            }
-            QMenuBar::item:selected {
-                background-color: #4a4a4a;
-                color: #ffffff;
-                transition: background-color 0.3s ease;
-            }
-            QMenu {
-                background-color: #0e0f15;
-                color: #ffffff;
-            }
-            QMenu::item:selected {
-                background-color: #4a4a4a;
-            }
+            QMenuBar { background-color: #0e0f15; color: #ffffff; }
+            QMenuBar::item { background-color: #0e0f15; padding: 5px 10px; }
+            QMenuBar::item:selected { background-color: #4a4a4a; color: #ffffff; transition: background-color 0.3s ease; }
+            QMenu { background-color: #0e0f15; color: #ffffff; }
+            QMenu::item:selected { background-color: #4a4a4a; }
         """)
         file_menu = QMenu("Opciones", self)
         menubar.addMenu(file_menu)
-        
+
         update_action = QAction("🔄 Actualizar", self)
         update_action.triggered.connect(self.actualizar_datos)
         file_menu.addAction(update_action)
-        
+
         export_action = QAction("💾 Exportar", self)
         export_action.triggered.connect(self.exportar_datos)
         file_menu.addAction(export_action)
@@ -163,17 +107,22 @@ class ScreenerApp(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.cargar_datos)
         self.update_count = 0
-        self.max_updates = 5
+        self.max_updates = 2
 
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.cargar_datos)
-        self.refresh_timer.start(300000)
+        self.refresh_timer.start(100000)
 
         self.cargar_datos()
-
-        delegate = RoundedRectDelegate(self.table, date_column=0, target_columns=[2, 3, 4, 11, 18, 19])
-        for col in [2, 3, 4, 11, 18, 19]:
-            self.table.setItemDelegateForColumn(col, delegate)
+        # Redondeado condicional a la fecha (opcional, si aún lo quieres)
+        apply_delegate(self.table, rounded_columns=[2, 3, 4], text_color="#00f4cf", background_color="#0e2524")
+        # Redondeados independientes con estilos por columna
+        rounded_styles = {
+            1: {'background_color': '#1d1c44', 'text_color': '#aeddf1'},  # Columna 1: fondo rojo, texto blanco
+           13: {'background_color': '#3a2c18', 'text_color': '#fef399'}   # Columna 7: fondo azul, texto amarillo
+        }
+        apply_custom_rounded(self.table, rounded_styles)
+        apply_delegate(self.table)  # Aplicar el delegado a la tabla
 
     def cargar_datos(self):
         if self.update_count >= self.max_updates and not self.refresh_timer.isActive():
@@ -193,31 +142,19 @@ class ScreenerApp(QMainWindow):
                         if len(row) > 5:
                             row[5] = row[5][:255] if row[5] else row[5]
                 self.table.cargar_datos(datos)
+                column_styles = {
+                    1: {'bold': True},  # Columna 1 en negrita
+                    2: {'align': Qt.AlignCenter},  # Columna 2 centrada
+                    3: {'align': Qt.AlignCenter},  # Columna 3 centrada y texto rojo
+                    4: {'align': Qt.AlignCenter},
+                    6: {'bold': True},  # Columna 6 en negrita y texto verde
+                    11: {'align': Qt.AlignCenter},
+                    18: {'align': Qt.AlignCenter},
+                    19: {'align': Qt.AlignCenter},
+                    13: {'bold': True,'align': Qt.AlignCenter, 'color': '#00f4cf'},  # Columna 13 centrada y texto rojo
+                }
+                customize_table(self.table, column_styles)
 
-                # Centrar los datos de ciertas columnas
-                columnas_a_centrar = [2, 3, 4, 11, 18, 19]  # Índices de las columnas a centrar
-                for row in range(self.table.rowCount()):
-                    for col in columnas_a_centrar:
-                        item = self.table.item(row, col)
-                        if item:
-                            item.setTextAlignment(Qt.AlignCenter)  # Centrar horizontal y verticalmente
-
-                # Cambiar a negrita las columnas 1 y 5
-                columnas_negrita = [1, 5]  # Índices de las columnas a poner en negrita
-                for row in range(self.table.rowCount()):
-                    for col in columnas_negrita:
-                        item = self.table.item(row, col)
-                        if item:
-                            font = item.font()
-                            font.setBold(True)  # Hacer el texto en negrita
-                            item.setFont(font)
-                        else:
-                            # Si no hay un QTableWidgetItem, crea uno para la celda
-                            item = QTableWidgetItem(self.table.item(row, col).text() if self.table.item(row, col) else "")
-                            font = item.font()
-                            font.setBold(True)
-                            item.setFont(font)
-                            self.table.setItem(row, col, item)
             except Exception as e:
                 self.status_bar.showMessage(f"Error al cargar datos: {str(e)}", 10000)
             finally:
