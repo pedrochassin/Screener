@@ -1,5 +1,7 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QMenuBar, QAction, QStatusBar, QMenu, QProgressBar
-from PyQt5.QtCore import Qt, QObject, pyqtSignal, QTimer, QThread
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QMenuBar, QAction, QStatusBar, QMenu, QProgressBar, QStyledItemDelegate, QStyleOptionViewItem, QStyle, QTableWidgetItem
+from PyQt5.QtCore import Qt, QObject, pyqtSignal, QTimer, QThread, QRect
+from PyQt5.QtGui import QColor, QPainter, QBrush
+from datetime import datetime
 import threading
 import traceback
 import time
@@ -24,48 +26,84 @@ class WorkerActualizarDatos(QObject):
 
     def run(self):
         try:
-            # Iniciar inmediatamente con un mensaje y progreso visible
             self.message.emit("Iniciando actualización de datos...")
             self.progress.emit(0)
-            time.sleep(0.01)  # Pausa mínima para que la UI refleje el inicio
+            time.sleep(0.01)
 
-            # Simular progreso inicial antes de buscar_tickers()
-            for i in range(0, 20, 2):  # Subir rápidamente de 0% a 20%
+            for i in range(0, 20, 2):
                 self.progress.emit(i)
-                time.sleep(0.02)  # Pausa corta para un inicio rápido
+                time.sleep(0.02)
 
             self.message.emit("Actualizando datos...")
-            buscar_tickers()  # Ejecuta la función de actualización
-            for i in range(20, 50, 2):  # Continuar de 20% a 50% más lentamente
+            buscar_tickers()
+            for i in range(20, 50, 2):
                 self.progress.emit(i)
-                time.sleep(0.05)  # Pausa más larga para simular trabajo
+                time.sleep(0.05)
 
-            # Transición a la siguiente fase
             self.message.emit("Actualizando volumen y datos históricos...")
-            time.sleep(0.01)  # Pausa mínima para que la UI actualice
+            time.sleep(0.01)
 
-            # Simular progreso inicial para actualizar_volumen_y_datos()
-            for i in range(50, 70, 2):  # Subir de 50% a 70% rápidamente
+            for i in range(50, 70, 2):
                 self.progress.emit(i)
-                time.sleep(0.02)  # Pausa corta para continuidad
+                time.sleep(0.02)
 
-            actualizar_volumen_y_datos()  # Ejecuta la actualización de volumen
-            for i in range(70, 100, 2):  # Finalizar de 70% a 100%
+            actualizar_volumen_y_datos()
+            for i in range(70, 100, 2):
                 self.progress.emit(i)
-                time.sleep(0.05)  # Pausa más larga para simular trabajo
+                time.sleep(0.05)
 
             self.finished.emit()
         except Exception as e:
             error_msg = f"Error durante la actualización: {str(e)}\n{traceback.format_exc()}"
             self.error.emit(error_msg)
 
+class RoundedRectDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None, date_column=0, target_columns=None):
+        super().__init__(parent)
+        self.date_column = date_column
+        self.target_columns = target_columns if target_columns is not None else []
+
+    def paint(self, painter, option, index):
+        if index.column() in self.target_columns:
+            table = self.parent()
+            date_item = table.item(index.row(), self.date_column)
+            hoy = datetime.now().strftime("%Y-%m-%d")
+            if date_item and date_item.text() == hoy:
+                painter.save()
+
+                background_color = QColor("#0e2524")
+                radius = 10
+
+                painter.setRenderHint(QPainter.Antialiasing)
+                brush = QBrush(background_color)
+                painter.setBrush(brush)
+                painter.setPen(Qt.NoPen)
+
+                rect = QRect(option.rect.adjusted(2, 2, -2, -2))
+                painter.drawRoundedRect(rect, radius, radius)
+
+                painter.restore()
+
+        option_copy = QStyleOptionViewItem(option)
+        self.initStyleOption(option_copy, index)
+        if index.column() in self.target_columns and date_item and date_item.text() == hoy:
+            # Centrar el texto horizontalmente
+            option_copy.textAlignment = Qt.AlignCenter
+            option_copy.textAlignment = Qt.AlignCenter | Qt.AlignVCenter
+            # Cambiar el color del texto
+            option_copy.palette.setColor(option_copy.palette.Text, QColor("#00f4cf"))
+
+        painter.save()
+        self.parent().style().drawControl(QStyle.CE_ItemViewItem, option_copy, painter, self.parent())
+        painter.restore()
+
 class ScreenerApp(QMainWindow):
-    def __init__(self):
+    def __init__(self): 
         super().__init__()
         self.setWindowTitle("Screener 2025")
         self.setGeometry(100, 100, 1200, 700)
         self.setStyleSheet("background-color: #0e0f15; color: #ffffff;")
-
+    
         menubar = self.menuBar()
         menubar.setStyleSheet("""
             QMenuBar {
@@ -122,18 +160,20 @@ class ScreenerApp(QMainWindow):
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
 
-        # Temporizador para recargar datos después de actualizaciones manuales
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.cargar_datos)
         self.update_count = 0
         self.max_updates = 5
 
-        # Temporizador para refrescar la tabla periódicamente (cada 5 minutos)
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.cargar_datos)
-        self.refresh_timer.start(300000)  # 300000 ms = 5 minutos
+        self.refresh_timer.start(300000)
 
         self.cargar_datos()
+
+        delegate = RoundedRectDelegate(self.table, date_column=0, target_columns=[2, 3, 4, 11, 18, 19])
+        for col in [2, 3, 4, 11, 18, 19]:
+            self.table.setItemDelegateForColumn(col, delegate)
 
     def cargar_datos(self):
         if self.update_count >= self.max_updates and not self.refresh_timer.isActive():
@@ -145,20 +185,44 @@ class ScreenerApp(QMainWindow):
         if conn:
             try:
                 datos = leer_datos(conn, "TablaFinviz")
-                # Truncar datos largos manualmente antes de mostrarlos (si es necesario)
                 for row in datos:
                     if isinstance(row, dict) and 'Noticia' in row and row['Noticia']:
                         row['Noticia'] = row['Noticia'][:255]
                     elif isinstance(row, tuple):
                         row = list(row)
-                        if len(row) > 5:  # Ajusta según el índice de 'Noticia'
+                        if len(row) > 5:
                             row[5] = row[5][:255] if row[5] else row[5]
                 self.table.cargar_datos(datos)
+
+                # Centrar los datos de ciertas columnas
+                columnas_a_centrar = [2, 3, 4, 11, 18, 19]  # Índices de las columnas a centrar
+                for row in range(self.table.rowCount()):
+                    for col in columnas_a_centrar:
+                        item = self.table.item(row, col)
+                        if item:
+                            item.setTextAlignment(Qt.AlignCenter)  # Centrar horizontal y verticalmente
+
+                # Cambiar a negrita las columnas 1 y 5
+                columnas_negrita = [1, 5]  # Índices de las columnas a poner en negrita
+                for row in range(self.table.rowCount()):
+                    for col in columnas_negrita:
+                        item = self.table.item(row, col)
+                        if item:
+                            font = item.font()
+                            font.setBold(True)  # Hacer el texto en negrita
+                            item.setFont(font)
+                        else:
+                            # Si no hay un QTableWidgetItem, crea uno para la celda
+                            item = QTableWidgetItem(self.table.item(row, col).text() if self.table.item(row, col) else "")
+                            font = item.font()
+                            font.setBold(True)
+                            item.setFont(font)
+                            self.table.setItem(row, col, item)
             except Exception as e:
                 self.status_bar.showMessage(f"Error al cargar datos: {str(e)}", 10000)
             finally:
                 conn.close()
-        
+
         self.update_count += 1
 
     def actualizar_datos(self):
@@ -182,7 +246,7 @@ class ScreenerApp(QMainWindow):
 
     def _actualizacion_completada(self):
         self.status_bar.showMessage("Actualización completa finalizada", 3000)
-        self.progress_bar.setValue(100)  # Asegurar que la barra llegue al 100%
+        self.progress_bar.setValue(100)
         self.progress_bar.setVisible(False)
         self.update_count = 0
         self.cargar_datos()
