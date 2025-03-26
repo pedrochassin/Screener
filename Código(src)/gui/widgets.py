@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit, QMenu, QApplication, QAction
-from PyQt5.QtCore import Qt, QSettings
+from PyQt5.QtCore import Qt, QSettings, QUrl
+from PyQt5.QtGui import QDesktopServices  # Para abrir enlaces en el navegador
 
 class NumericTableWidgetItem(QTableWidgetItem):
     """Subclase de QTableWidgetItem para permitir ordenamiento numérico en la tabla."""
@@ -19,7 +20,7 @@ class NumericTableWidgetItem(QTableWidgetItem):
         return super().__lt__(other)
 
 class DataTable(QTableWidget):
-    """Tabla personalizada para mostrar datos con ordenamiento, filtrado y menú contextual."""
+    """Tabla personalizada para mostrar datos con ordenamiento, filtrado, menú contextual y enlaces en Ticker."""
     
     def __init__(self, parent):
         """
@@ -59,6 +60,9 @@ class DataTable(QTableWidget):
         self.sort_orders = {}  # Diccionario para almacenar el orden de cada columna
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.mostrar_menu_contextual)
+        
+        # Conectar el evento de doble clic para abrir enlaces
+        self.cellDoubleClicked.connect(self.abrir_enlace_ticker)
 
         self.filter_input = QLineEdit(self)
         self.filter_input.setPlaceholderText("Filtrar por Ticker...")
@@ -73,7 +77,7 @@ class DataTable(QTableWidget):
 
     def cargar_datos(self, datos):
         """
-        Carga datos desde la base de datos en la tabla.
+        Carga datos desde la base de datos en la tabla y agrega enlaces a la columna Ticker.
         
         Args:
             datos (list): Lista de filas con datos obtenidos de la base de datos.
@@ -84,7 +88,13 @@ class DataTable(QTableWidget):
             row = self.rowCount()
             self.insertRow(row)
             for col, value in enumerate(fila):
-                if col == 13:  # Columna VolumenActual
+                if col == 1:  # Columna Ticker (índice 1)
+                    item = QTableWidgetItem(str(value))  # Mostrar el nombre del ticker
+                    # Construir el enlace para el ticker
+                    enlace = f"https://app.flash-research.com" #/stock/{value}
+                    item.setData(Qt.UserRole, enlace)  # Almacenar el enlace en Qt.UserRole
+                    item.setToolTip(f"Haz doble clic para visitar {enlace}")  # Mostrar enlace como tooltip
+                elif col == 13:  # Columna VolumenActual
                     try:
                         # Formatear el valor con separadores de miles
                         formatted_value = "{:,}".format(int(value))
@@ -115,7 +125,13 @@ class DataTable(QTableWidget):
                 row = self.rowCount()
                 self.insertRow(row)
                 for col, value in enumerate(fila):
-                    if col == 13:  # Columna VolumenActual
+                    if col == 1:  # Columna Ticker (índice 1)
+                        item = QTableWidgetItem(str(value))  # Mostrar el nombre del ticker
+                        # Construir el enlace para el ticker
+                        enlace = f"https://app.flash-research.com" #/stock/{value}"
+                        item.setData(Qt.UserRole, enlace)  # Almacenar el enlace en Qt.UserRole
+                        item.setToolTip(f"Haz doble clic para visitar {enlace}")  # Mostrar enlace como tooltip
+                    elif col == 13:  # Columna VolumenActual
                         try:
                             # Formatear el valor con separadores de miles
                             formatted_value = "{:,}".format(int(value))
@@ -253,3 +269,18 @@ class DataTable(QTableWidget):
         Redirige la eliminación de filas seleccionadas al método del padre (ScreenerApp).
         """
         self.app.eliminar_seleccion()
+
+    def abrir_enlace_ticker(self, row, col):
+        """
+        Abre el enlace asociado al ticker en la columna 1 al hacer doble clic.
+        
+        Args:
+            row (int): Fila de la celda clicada.
+            col (int): Columna de la celda clicada.
+        """
+        if col == 1:  # Solo abrir enlace si se hace doble clic en la columna Ticker
+            item = self.item(row, col)
+            if item:
+                enlace = item.data(Qt.UserRole)  # Obtener el enlace almacenado
+                if enlace:
+                    QDesktopServices.openUrl(QUrl(enlace))  # Abrir el enlace en el navegador
