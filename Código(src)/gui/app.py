@@ -1,9 +1,7 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QAction, QStatusBar, QMenu, QProgressBar, QPushButton
 from PyQt5.QtCore import Qt, QObject, pyqtSignal, QTimer, QThread, QPropertyAnimation, QSize, QRect
 from PyQt5.QtGui import QIcon, QPixmap, QColor
-import threading
-import traceback
-import time
+import threading, traceback, time
 from .widgets import DataTable
 from .filters import FilterDialog
 from .utils import export_to_csv
@@ -64,99 +62,92 @@ class ScreenerApp(QMainWindow):
         self.setGeometry(100, 100, 1200, 700)
         self.setStyleSheet("background-color: #0e0f15; color: #ffffff;")
 
-        # Configuración del widget central y layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)  # Reducir márgenes del layout principal
-        main_layout.setSpacing(0)  # Reducir espaciado entre elementos
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Layout horizontal para los botones (alineado a la izquierda)
         button_layout = QHBoxLayout()
-        button_layout.setAlignment(Qt.AlignLeft)  # Alinear a la izquierda
-        button_layout.setContentsMargins(5, 5, 0, 0)  # Márgenes mínimos
-        button_layout.setSpacing(5)  # Espacio entre botones
+        button_layout.setAlignment(Qt.AlignLeft)
+        button_layout.setContentsMargins(5, 5, 0, 0)
+        button_layout.setSpacing(5)
 
-        # Crear y escalar el ícono para el botón "Opciones"
         pixmap_options = QPixmap("C:/Users/Admin/Documents/Screener 2025/Option_icon.png")
         if pixmap_options.isNull():
             print("Error: No se pudo cargar el ícono de Opciones. Verifica la ruta o el archivo.")
         else:
-            pixmap_options = pixmap_options.scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)  # Tamaño pequeño
-            print(f"Tamaño del pixmap (Opciones): {pixmap_options.size()}")  # Depuración
+            pixmap_options = pixmap_options.scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             icon_options = QIcon(pixmap_options)
 
-            # Botón "Opciones" (solo ícono)
             self.options_button = QPushButton(self)
             self.options_button.setIcon(icon_options)
             self.options_button.setStyleSheet("""
                 QPushButton { 
                     background-color: #0e0f15; 
-                    border: 1px solid #0e0f15;  /* Borde azul claro */
+                    border: 1px solid #0e0f15;
                     padding: 2px; 
                 }
                 QPushButton:hover { 
                     background-color: #4a4a4a; 
                 }
             """)
-            self.options_button.setFixedSize(32, 32)  # Tamaño pequeño del botón
+            self.options_button.setFixedSize(32, 32)
             self.options_button.clicked.connect(self.abrir_menu_opciones)
-
-            # Eventos para animaciones
             self.options_button.enterEvent = self.on_enter_options
             self.options_button.leaveEvent = self.on_leave_options
             self.options_button.clicked.connect(self.on_click_options)
-
             button_layout.addWidget(self.options_button)
 
-        # Crear y escalar el ícono para el botón "Filtrar"
-        pixmap_filter = QPixmap("C:/Users/Admin/Documents/Screener 2025/Filter_icon.png")  # Ajusta la ruta
+        pixmap_filter = QPixmap("C:/Users/Admin/Documents/Screener 2025/Filter_icon.png")
         if pixmap_filter.isNull():
             print("Error: No se pudo cargar el ícono de Filtrar. Verifica la ruta o el archivo.")
         else:
-            pixmap_filter = pixmap_filter.scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)  # Tamaño pequeño
-            print(f"Tamaño del pixmap (Filtrar): {pixmap_filter.size()}")  # Depuración
+            pixmap_filter = pixmap_filter.scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             icon_filter = QIcon(pixmap_filter)
 
-            # Botón "Filtrar" (solo ícono)
             self.filter_button = QPushButton(self)
             self.filter_button.setIcon(icon_filter)
             self.filter_button.setStyleSheet("""
                 QPushButton { 
                     background-color: #0e0f15; 
-                    border: 1px solid #1e90ff;  /* Borde azul claro */
+                    border: 1px solid #0e0f15;
                     padding: 2px; 
                 }
                 QPushButton:hover { 
                     background-color: #4a4a4a; 
-                    border: 1px solid #63b8ff;  /* Borde azul más claro al pasar el mouse */
+                    border: 1px solid #63b8ff;
                 }
             """)
-            self.filter_button.setFixedSize(32, 32)  # Tamaño pequeño del botón
+            self.filter_button.setFixedSize(32, 32)
             self.filter_button.clicked.connect(self.abrir_filtros)
-
-            # Eventos para animaciones
             self.filter_button.enterEvent = self.on_enter_filter
             self.filter_button.leaveEvent = self.on_leave_filter
             self.filter_button.clicked.connect(self.on_click_filter)
-
             button_layout.addWidget(self.filter_button)
 
-        # Añadir el layout de botones al layout principal
         main_layout.addLayout(button_layout)
 
-        # Tabla
         self.table = DataTable(self)
         main_layout.addWidget(self.table)
 
-        # Barra de estado
         self.status_bar = QStatusBar()
         self.status_bar.setStyleSheet("background-color: #0e0f15; color: #ffffff;")
         self.setStatusBar(self.status_bar)
         self.table.itemSelectionChanged.connect(self.actualizar_estado)
 
         self.progress_bar = QProgressBar(self)
-        self.progress_bar.setStyleSheet("QProgressBar { border: 1px solid #4a4a4a; background-color: #3a3a3a; color: #ffffff; text-align: center; } QProgressBar::chunk { background-color: #1e90ff; }")
+        self.progress_bar.setStyleSheet("""
+            QProgressBar { 
+                border: 1px solid #4a4a4a; 
+                background-color: #3a3a3a; 
+                color: #ffffff; 
+                text-align: center; 
+            } 
+            QProgressBar::chunk { 
+                background-color: #1e90ff; 
+            }
+        """)
         self.progress_bar.setMaximumWidth(200)
         self.progress_bar.setVisible(False)
         self.status_bar.addPermanentWidget(self.progress_bar)
@@ -180,36 +171,26 @@ class ScreenerApp(QMainWindow):
         apply_delegate(self.table)
 
     def on_enter_options(self, event):
-        # Animación de escala al pasar el mouse (crecer)
         self.animate_button(self.options_button, QSize(40, 40), QSize(48, 48), 200)
-        # Animación del color del borde
         self.animate_border_color(self.options_button, QColor("#efd700"), QColor("#63b8ff"), 200)
 
     def on_leave_options(self, event):
-        # Animación de escala al salir del mouse (volver al tamaño original)
         self.animate_button(self.options_button, QSize(40, 40), QSize(32, 32), 200)
-        # Animación del color del borde (volver al color original)
         self.animate_border_color(self.options_button, QColor("#da4b75"), QColor("#0e0f15"), 200)
 
     def on_click_options(self):
-        # Animación de escala al hacer clic (efecto de pulsación)
         self.animate_button(self.options_button, QSize(32, 32), QSize(28, 28), 100, 
                            lambda: self.animate_button(self.options_button, QSize(28, 28), QSize(32, 32), 100))
 
     def on_enter_filter(self, event):
-        # Animación de escala al pasar el mouse (crecer)
         self.animate_button(self.filter_button, QSize(32, 32), QSize(40, 40), 200)
-        # Animación del color del borde
         self.animate_border_color(self.filter_button, QColor("#63b8ff"), QColor("#efd700"), 200)
 
     def on_leave_filter(self, event):
-        # Animación de escala al salir del mouse (volver al tamaño original)
         self.animate_button(self.filter_button, QSize(40, 40), QSize(32, 32), 200)
-        # Animación del color del borde (volver al color original)
-        self.animate_border_color(self.filter_button, QColor("#efd700"), QColor("#1e90ff"), 200)
+        self.animate_border_color(self.filter_button, QColor("#efd700"), QColor("#0e0f15"), 200)
 
     def on_click_filter(self):
-        # Animación de escala al hacer clic (efecto de pulsación)
         self.animate_button(self.filter_button, QSize(32, 32), QSize(28, 28), 100, 
                             lambda: self.animate_button(self.filter_button, QSize(28, 28), QSize(32, 32), 100))
 
@@ -249,6 +230,55 @@ class ScreenerApp(QMainWindow):
             }}
         """)
 
+    def guardar_estado_tabla(self):
+        """Guarda el estado actual de la tabla antes de una actualización."""
+        header = self.table.horizontalHeader()
+        
+        # Guardar selección
+        seleccion = self.table.selectedIndexes()
+        self.estado_seleccion = [(index.row(), index.column()) for index in seleccion] if seleccion else []
+        
+        # Guardar ordenamiento
+        self.estado_orden = {
+            'columna': header.sortIndicatorSection(),
+            'orden': header.sortIndicatorOrder()
+        }
+        
+        # Guardar posición de las columnas
+        self.estado_posiciones = [header.logicalIndex(i) for i in range(header.count())]
+        
+        # Guardar scroll position
+        self.estado_scroll = {
+            'vertical': self.table.verticalScrollBar().value(),
+            'horizontal': self.table.horizontalScrollBar().value()
+        }
+
+    def restaurar_estado_tabla(self):
+        """Restaura el estado de la tabla después de una actualización."""
+        header = self.table.horizontalHeader()
+        
+        # Restaurar posición de las columnas
+        if hasattr(self, 'estado_posiciones'):
+            for visual_index, logical_index in enumerate(self.estado_posiciones):
+                header.moveSection(header.visualIndex(logical_index), visual_index)
+        
+        # Restaurar ordenamiento
+        if hasattr(self, 'estado_orden') and self.estado_orden['columna'] is not None:
+            self.table.sortItems(self.estado_orden['columna'], self.estado_orden['orden'])
+            header.setSortIndicator(self.estado_orden['columna'], self.estado_orden['orden'])
+        
+        # Restaurar selección
+        if hasattr(self, 'estado_seleccion'):
+            self.table.clearSelection()
+            for row, col in self.estado_seleccion:
+                if row < self.table.rowCount() and col < self.table.columnCount():
+                    self.table.setItemSelected(self.table.item(row, col), True)
+        
+        # Restaurar scroll position
+        if hasattr(self, 'estado_scroll'):
+            self.table.verticalScrollBar().setValue(self.estado_scroll['vertical'])
+            self.table.horizontalScrollBar().setValue(self.estado_scroll['horizontal'])
+
     def abrir_menu_opciones(self):
         menu = QMenu(self)
         update_action = QAction("🔄 Actualizar", self)
@@ -266,6 +296,9 @@ class ScreenerApp(QMainWindow):
             self.status_bar.showMessage("Número máximo de actualizaciones alcanzado", 5000)
             return
 
+        # Guardar estado actual de la tabla
+        self.guardar_estado_tabla()
+
         conn = conectar()
         if conn:
             try:
@@ -278,6 +311,10 @@ class ScreenerApp(QMainWindow):
                         if len(row) > 5:
                             row[5] = row[5][:255] if row[5] else row[5]
                 self.table.cargar_datos(datos)
+
+                # Restaurar estado de la tabla
+                self.restaurar_estado_tabla()
+
                 column_styles = {
                     1: {'bold': True},
                     2: {'align': Qt.AlignCenter},
@@ -321,9 +358,9 @@ class ScreenerApp(QMainWindow):
         self.progress_bar.setValue(100)
         self.progress_bar.setVisible(False)
         self.update_count = 0
-        self.cargar_datos()
+        self.cargar_datos()  # Esto ya incluye guardar/restaurar estado
         if not self.refresh_timer.isActive():
-            self.refresh_timer.start(300000)
+            self.refresh_timer.start(1000)
 
     def _mostrar_error(self, error_msg):
         self.status_bar.showMessage(error_msg, 10000)

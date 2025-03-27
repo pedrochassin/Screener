@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit, QMenu, QApplication, QAction
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit, QMenu, QApplication, QAction, QProgressBar
 from PyQt5.QtCore import Qt, QSettings, QUrl
 from PyQt5.QtGui import QDesktopServices  # Para abrir enlaces en el navegador
 
@@ -41,6 +41,7 @@ class DataTable(QTableWidget):
         self.horizontalHeader().setSectionsMovable(True)  # Permitir mover columnas
         self.horizontalHeader().sectionMoved.connect(self.guardar_posiciones_columnas)  # Conectar señal para guardar posiciones
 
+        # Estilo de la tabla, incluyendo el corner button
         self.setStyleSheet("""
             QTableWidget {
                 background-color: #12131b;
@@ -53,6 +54,34 @@ class DataTable(QTableWidget):
                 padding: 5px;
                 border: 1px solid #0e0f15;
             }
+            QTableWidget::item:hover {
+                background-color: #2a2c3c;  /* Fondo al pasar el mouse */
+            }
+            QTableWidget::item:selected {
+                background-color: #63b8ff;  /* Fondo de celdas seleccionadas */
+            }
+            QTableCornerButton::section {
+                background-color: #232533;  /* Fondo de la esquina superior izquierda (mismo que el header) */
+                border: 1px solid #0e0f15;  /* Borde de la esquina */
+            }
+            QProgressBar {
+                border: none;
+                background-color: #232533;
+                border-radius: 5px;
+                text-align: center;
+                color: #ffffff;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(
+                spread:pad, 
+                x1:0, y1:0, x2:1, y2:0, 
+                stop:0 #00cc00,   /* Verde claro */
+                stop:0.5 #ffff00, /* Amarillo */
+                stop:1 #ff0000    /* Rojo */
+    );
+    border-radius: 5px;
+}
+
         """)
         self.setEditTriggers(QTableWidget.NoEditTriggers)  # Desactiva edición directa
         self.horizontalHeader().sectionClicked.connect(self.ordenar_columna)
@@ -78,16 +107,42 @@ class DataTable(QTableWidget):
     def cargar_datos(self, datos):
         """
         Carga datos desde la base de datos en la tabla y agrega enlaces a la columna Ticker.
+        También inserta barras de progreso en la columna "Vacío" basadas en "Rvol".
         
         Args:
             datos (list): Lista de filas con datos obtenidos de la base de datos.
         """
         self.datos_completos = datos
         self.setRowCount(0)
+
+        # Obtener el valor máximo de Rvol para normalizar las barras de progreso
+        rvol_values = []
+        for fila in datos:
+            try:
+                rvol = float(fila[18])  # Columna Rvol (índice 18)
+                rvol_values.append(rvol)
+            except (ValueError, TypeError):
+                rvol_values.append(0.0)
+        max_rvol = max(rvol_values, default=1.0)  # Evitar división por cero
+
+        # Cargar los datos y añadir barras de progreso
         for fila in datos:
             row = self.rowCount()
             self.insertRow(row)
             for col, value in enumerate(fila):
+                if col == 5:  # Columna "Vacío" (índice 5)
+                    try:
+                        rvol = float(fila[18])  # Columna Rvol (índice 18)
+                    except (ValueError, TypeError):
+                        rvol = 0.0
+                    # Normalizar el valor de Rvol al rango 0-100
+                    progress_value = (rvol / max_rvol) * 100 if max_rvol > 0 else 0
+                    progress_bar = QProgressBar(self)
+                    progress_bar.setValue(int(progress_value))
+                    
+                    progress_bar.setFixedHeight(15)  # Ajustar la altura de la barra
+                    self.setCellWidget(row, col, progress_bar)
+                    continue  # Saltar la creación de un QTableWidgetItem para esta celda
                 if col == 1:  # Columna Ticker (índice 1)
                     item = QTableWidgetItem(str(value))  # Mostrar el nombre del ticker
                     # Construir el enlace para el ticker
@@ -115,20 +170,47 @@ class DataTable(QTableWidget):
     def filtrar_en_tiempo_real(self, texto):
         """
         Filtra filas en tiempo real según el texto ingresado en el campo de filtro.
+        También inserta barras de progreso en la columna "Vacío" basadas en "Rvol".
         
         Args:
             texto (str): Texto ingresado por el usuario para filtrar por Ticker.
         """
         self.setRowCount(0)
+
+        # Obtener el valor máximo de Rvol para normalizar las barras de progreso
+        rvol_values = []
+        for fila in self.datos_completos:
+            if texto.lower() in str(fila[1]).lower():
+                try:
+                    rvol = float(fila[18])  # Columna Rvol (índice 18)
+                    rvol_values.append(rvol)
+                except (ValueError, TypeError):
+                    rvol_values.append(0.0)
+        max_rvol = max(rvol_values, default=1.0)  # Evitar división por cero
+
+        # Filtrar y cargar los datos con barras de progreso
         for fila in self.datos_completos:
             if texto.lower() in str(fila[1]).lower():
                 row = self.rowCount()
                 self.insertRow(row)
                 for col, value in enumerate(fila):
+                    if col == 5:  # Columna "Vacío" (índice 5)
+                        try:
+                            rvol = float(fila[18])  # Columna Rvol (índice 18)
+                        except (ValueError, TypeError):
+                            rvol = 0.0
+                        # Normalizar el valor de Rvol al rango 0-100
+                        progress_value = (rvol / max_rvol) * 100 if max_rvol > 0 else 0
+                        progress_bar = QProgressBar(self)
+                        progress_bar.setValue(int(progress_value))
+                        progress_bar.setTextVisible(False)  # Ocultar el texto del porcentaje
+                        progress_bar.setFixedHeight(15)  # Ajustar la altura de la barra
+                        self.setCellWidget(row, col, progress_bar)
+                        continue  # Saltar la creación de un QTableWidgetItem para esta celda
                     if col == 1:  # Columna Ticker (índice 1)
                         item = QTableWidgetItem(str(value))  # Mostrar el nombre del ticker
                         # Construir el enlace para el ticker
-                        enlace = f"https://app.flash-research.com" #/stock/{value}"
+                        enlace = f"https://app.flash-research.com" #/stock/{value}
                         item.setData(Qt.UserRole, enlace)  # Almacenar el enlace en Qt.UserRole
                         item.setToolTip(f"Haz doble clic para visitar {enlace}")  # Mostrar enlace como tooltip
                     elif col == 13:  # Columna VolumenActual
