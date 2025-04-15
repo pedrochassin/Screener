@@ -23,14 +23,19 @@ APP_SECRET = 'TGW90ZhxR9zHUcve'  # Reemplaza con tu secreto API
 CALLBACK_URI = 'https://127.0.0.1'  # Ajusta según el portal
 TOKEN_PATH = 'token.json'  # Archivo para almacenar el token
 
-# Obtiene tickers únicos desde la base de datos, sin filtrar por fecha
-def obtener_tickers_unicos():
+# Número de tickers para pruebas
+TICKERS_LIMIT = 10  # Cambia a None para todos los tickers
+
+# Obtiene tickers únicos desde la base de datos
+def obtener_tickers_unicos(limit=None):
     conn = conectar()
     if conn:
         try:
-            query_filtro = None  # Sin filtro de fecha
+            query_filtro = None
             datos = leer_datos(conn, "TablaFinviz", query_filtro)
-            tickers = list(set(row[1] for row in datos)) if datos else []  # Tickers únicos
+            tickers = list(set(row[1] for row in datos)) if datos else []
+            if limit is not None:
+                tickers = tickers[:limit]
             print(f"[DEBUG] Tickers únicos obtenidos: {len(tickers)}")
             return tickers
         except Exception as e:
@@ -39,16 +44,14 @@ def obtener_tickers_unicos():
             conn.close()
     return []
 
-# Obtiene volúmenes para una lista de tickers usando la API de Schwab
-async def obtener_volumenes_schwab(tickers):
+# Obtiene datos actuales de Schwab
+async def obtener_datos_schwab(tickers):
     try:
-        # Autenticación
         client = easy_client(API_KEY, APP_SECRET, CALLBACK_URI, TOKEN_PATH)
-        batch_size = 100  # Tickers por solicitud
-        volumenes = {}
+        batch_size = 100
+        datos = {}
         today = datetime.now().strftime('%Y-%m-%d')
 
-        # Procesar tickers en lotes
         for i in range(0, len(tickers), batch_size):
             batch = tickers[i:i + batch_size]
             retries = 3
@@ -61,11 +64,31 @@ async def obtener_volumenes_schwab(tickers):
                         quote_data = quote_response.json()
                         for ticker in batch:
                             if ticker in quote_data and 'quote' in quote_data[ticker]:
-                                volume = quote_data[ticker]['quote'].get('totalVolume', 0)
-                                volumenes[ticker] = volume if volume > 0 else None
-                                print(f"[DEBUG] {ticker}: {volume} acciones")
+                                quote = quote_data[ticker]['quote']
+                                fundamental = quote_data[ticker].get('fundamental', {})
+                                high = quote.get('highPrice', 0)
+                                low = quote.get('lowPrice', 0)
+                                ret = ((high - low) / low * 100) if low > 0 else 0
+                                volume = quote.get('totalVolume', 0)
+                                avg_vol = fundamental.get('avg10DaysVolume', 0)
+                                rvo = volume / avg_vol if avg_vol > 0 else 0
+                                # Genera barra de estado para Rvo (usando asteriscos para compatibilidad)
+                                rvo_normalized = min(max(rvo, 0), 5)
+                                rvo_bar = '*' * int(rvo_normalized * 2)
+                                rvo_bar = rvo_bar.ljust(10)
+                                
+                                datos[ticker] = {
+                                    'Price': quote.get('lastPrice', 0),
+                                    'Change%': quote.get('netPercentChange', 0),
+                                    'Volume': volume,
+                                    'AvgVol': avg_vol,
+                                    'Rvo': rvo,
+                                    'Ret': ret,
+                                    'RvoBar': rvo_bar
+                                }
+                                print(f"[DEBUG] {ticker}: Price={datos[ticker]['Price']}, Change%={datos[ticker]['Change%']:.2f}, Volume={volume}, AvgVol={avg_vol:.0f}, Rvo={rvo:.2f}, Ret={ret:.2f}, RvoBar={rvo_bar}")
                             else:
-                                volumenes[ticker] = None
+                                datos[ticker] = {'Price': 0, 'Change%': 0, 'Volume': 0, 'AvgVol': 0, 'Rvo': 0, 'Ret': 0, 'RvoBar': ''}
                                 print(f"[DEBUG] No se encontraron datos para {ticker}")
                         break
                     else:
@@ -78,105 +101,119 @@ async def obtener_volumenes_schwab(tickers):
                     if retries == 0:
                         print(f"[DEBUG] Fallo en lote {batch}. Saltando...")
                         for ticker in batch:
-                            volumenes[ticker] = None
+                            datos[ticker] = {'Price': 0, 'Change%': 0, 'Volume': 0, 'AvgVol': 0, 'Rvo': 0, 'Ret': 0, 'RvoBar': ''}
                         break
-                    time.sleep(2 ** (3 - retries))  # Espera exponencial
-            time.sleep(0.5)  # Evitar límite de tasa
-        return volumenes
+                    time.sleep(2 ** (3 - retries))
+            time.sleep(0.5)
+        return datos
     except Exception as e:
-        print(f"[DEBUG] Error al obtener volúmenes: {e}")
+        print(f"[DEBUG] Error al obtener datos de Schwab: {e}")
         traceback.print_exc()
         return {}
 
-# Actualiza o inserta el volumen de un ticker en la base de datos
-def actualizar_volumen_actual(ticker, volumen_actual, fecha):
+# Crea o actualiza la tabla TempDatosActuales y guarda datos
+def guardar_datos_actuales(datos):
     conn = conectar()
     if conn:
         cursor = conn.cursor()
         try:
-            fecha_str = fecha.strftime("%Y-%m-%d")
-            # Verifica si existe un registro para el ticker y la fecha
-            query_check = """
-            SELECT COUNT(*) FROM [TablaFinviz]
-            WHERE [Ticker] = ? AND [Fecha] = ?
-            """
-            cursor.execute(query_check, (ticker, fecha_str))
-            exists = cursor.fetchone()[0] > 0
+            # Crea tabla si no existe
+            cursor.execute("""
+            IF OBJECT_ID('TempDatosActuales') IS NULL
+                CREATE TABLE TempDatosActuales (
+                    Ticker VARCHAR(50),
+                    Price FLOAT,
+                    ChangePercent FLOAT,
+                    Volume BIGINT,
+                    AvgVol FLOAT,
+                    Rvo FLOAT,
+                    Ret FLOAT,
+                    RvoBar VARCHAR(10)
+                );
+            """)
+            # Trunca la tabla
+            cursor.execute("TRUNCATE TABLE TempDatosActuales;")
 
-            if exists:
-                # Actualiza el registro existente
-                query_update = """
-                UPDATE [TablaFinviz]
-                SET [VolumenActual] = ?
-                WHERE [Ticker] = ? AND [Fecha] = ?
+            # Inserta datos
+            for ticker, info in datos.items():
+                query = """
+                INSERT INTO TempDatosActuales (Ticker, Price, ChangePercent, Volume, AvgVol, Rvo, Ret, RvoBar)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """
-                valores = (volumen_actual if volumen_actual is not None else None, ticker, fecha_str)
-                cursor.execute(query_update, valores)
-                print(f"[DEBUG] Volumen actualizado para {ticker} en {fecha_str}: {volumen_actual}")
-            else:
-                # Inserta un nuevo registro
-                query_insert = """
-                INSERT INTO [TablaFinviz] ([Ticker], [Fecha], [VolumenActual])
-                VALUES (?, ?, ?)
-                """
-                valores = (ticker, fecha_str, volumen_actual if volumen_actual is not None else None)
-                cursor.execute(query_insert, valores)
-                print(f"[DEBUG] Volumen insertado para {ticker} en {fecha_str}: {volumen_actual}")
+                valores = (
+                    ticker,
+                    info['Price'],
+                    info['Change%'],
+                    info['Volume'],
+                    info['AvgVol'],
+                    info['Rvo'],
+                    info['Ret'],
+                    info['RvoBar']
+                )
+                cursor.execute(query, valores)
+                print(f"[DEBUG] Datos insertados para {ticker}")
 
             conn.commit()
         except Exception as e:
-            print(f"[DEBUG] Error al actualizar/insertar volumen para {ticker}: {e}")
+            print(f"[DEBUG] Error al guardar datos: {e}")
         finally:
             cursor.close()
             conn.close()
 
-# Opción 2: Actualizar todos los registros de un ticker, sin importar la fecha
-"""
-def actualizar_volumen_actual(ticker, volumen_actual):
+# Crea la vista DatosActuales con formato personalizado
+def crear_vista_datos_actuales():
     conn = conectar()
     if conn:
         cursor = conn.cursor()
         try:
-            query = '''
-            UPDATE [TablaFinviz]
-            SET [VolumenActual] = ?
-            WHERE [Ticker] = ?
-            '''
-            valores = (volumen_actual if volumen_actual is not None else None, ticker)
-            cursor.execute(query, valores)
+            # Ejecuta DROP VIEW por separado
+            cursor.execute("""
+            IF OBJECT_ID('DatosActuales') IS NOT NULL
+                DROP VIEW DatosActuales;
+            """)
             conn.commit()
-            print(f"[DEBUG] Volumen actualizado para {ticker}: {volumen_actual}")
+
+            # Crea la vista con formato
+            cursor.execute("""
+            CREATE VIEW DatosActuales AS
+            SELECT 
+                Ticker,
+                CAST(Price AS DECIMAL(10,2)) AS Price,
+                FORMAT(ChangePercent, 'N2') + '%' AS [Change%],
+                FORMAT(Volume, 'N0') AS Volume,
+                FORMAT(AvgVol, 'N0') AS AvgVol,
+                CAST(Rvo AS DECIMAL(10,2)) AS Rvo,
+                CAST(Ret AS DECIMAL(10,2)) AS Ret,
+                RvoBar
+            FROM TempDatosActuales;
+            """)
+            conn.commit()
+            print(f"[DEBUG] Vista DatosActuales creada con éxito.")
         except Exception as e:
-            print(f"[DEBUG] Error al actualizar volumen para {ticker}: {e}")
+            print(f"[DEBUG] Error al crear vista: {e}")
         finally:
             cursor.close()
             conn.close()
-"""
 
 # Función principal
 async def main():
-    print(f"[scraper_schwab] Iniciando actualización de volumen a las {datetime.now().strftime('%H:%M:%S')}...")
-    fecha_actual = obtener_fecha_actual()
-    tickers = obtener_tickers_unicos()
+    print(f"[scraper_schwab] Iniciando generación de datos actuales a las {datetime.now().strftime('%H:%M:%S')}...")
+    tickers = obtener_tickers_unicos(limit=TICKERS_LIMIT)
     
     if not tickers:
         print(f"[scraper_schwab] No se encontraron tickers en TablaFinviz.")
         return
 
-    print(f"[scraper_schwab] Obteniendo volúmenes para {len(tickers)} tickers únicos...")
-    volumenes = await obtener_volumenes_schwab(tickers)
+    print(f"[scraper_schwab] Obteniendo datos para {len(tickers)} tickers únicos...")
+    datos = await obtener_datos_schwab(tickers)
 
-    print(f"[scraper_schwab] Actualizando volúmenes en la base de datos...")
-    for ticker in tickers:
-        volumen_actual = volumenes.get(ticker)
-        if volumen_actual is not None:
-            actualizar_volumen_actual(ticker, volumen_actual, fecha_actual)
-            # Para Opción 2, usa:
-            # actualizar_volumen_actual(ticker, volumen_actual)
-        else:
-            print(f"[DEBUG] Sin volumen para {ticker}, no se actualiza.")
+    print(f"[scraper_schwab] Guardando datos en tabla TempDatosActuales...")
+    guardar_datos_actuales(datos)
 
-    print("[scraper_schwab] Actualización de volúmenes completada.")
+    print(f"[scraper_schwab] Creando vista DatosActuales...")
+    crear_vista_datos_actuales()
+
+    print("[scraper_schwab] Generación de datos completada.")
 
 if __name__ == "__main__":
     try:
