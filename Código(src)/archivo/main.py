@@ -4,7 +4,6 @@ from utils import convertir_volumen, traducir_texto, obtener_fecha_actual
 import datetime
 
 def buscar_tickers():
-    """Función principal que ejecuta el scraping y actualización."""
     print(f"Iniciando búsqueda de tickers a las {datetime.datetime.now().strftime('%H:%M:%S')}...")
     conn = conectar()
     if not conn:
@@ -15,28 +14,41 @@ def buscar_tickers():
     datos_tabla = obtener_tabla_finviz(driver)
     driver.quit()
 
+    fecha_actual = obtener_fecha_actual()
+    print(f"Fecha actual usada: {fecha_actual}")
+
+    print(f"Insertando {len(datos_tabla)} nuevos tickers...")
     for datos in datos_tabla:
         volumen_convertido = convertir_volumen(datos[3])
-        valores = (obtener_fecha_actual(), datos[0], datos[1], datos[2], volumen_convertido, datos[4], datos[5], None)
-        insertar_datos(conn, "TablaFinviz", valores)
+        valores = (fecha_actual, datos[0], datos[1], datos[2], volumen_convertido, datos[4], datos[5], None)
+        try:
+            insertar_datos(conn, "TablaFinviz", valores)
+        except Exception as e:
+            print(f"Error al insertar en TablaFinviz: {e}")
 
-    tickers_sin_noticias = [row[1] for row in leer_datos(conn, "TablaFinviz", "Noticia IS NULL OR Noticia = ''")]
+    total_con_fecha = len(leer_datos(conn, "TablaFinviz", f"Fecha = '{fecha_actual}'") or [])
+    print(f"Total de registros con Fecha = {fecha_actual} después de inserción: {total_con_fecha}")
+
+    # Actualizar noticias con paréntesis explícitos
+    tickers_sin_noticias = [row[1] for row in leer_datos(conn, "TablaFinviz", f"(Noticia IS NULL OR Noticia = '') AND Fecha = '{fecha_actual}'") or []]
+    print(f"Actualizando noticias para {len(tickers_sin_noticias)} tickers con Fecha = {fecha_actual}")
     for ticker in tickers_sin_noticias:
         noticia_en = obtener_noticias(ticker)
-        # Manejo seguro de la división para traducción
-        if "(" in noticia_en and ")" in noticia_en:  # Verificamos que haya un cierre de paréntesis
-            partes = noticia_en.split(" (", 1)  # Dividimos en la primera ocurrencia de " ("
-            if len(partes) > 1 and ")" in partes[1]:  # Aseguramos que haya contenido después del paréntesis
+        if "(" in noticia_en and ")" in noticia_en:
+            partes = noticia_en.split(" (", 1)
+            if len(partes) > 1 and ")" in partes[1]:
                 texto_base = partes[0]
                 texto_parentesis = "(" + partes[1]
                 noticia_es = traducir_texto(texto_base) + " " + texto_parentesis
             else:
-                noticia_es = traducir_texto(noticia_en)  # Si falla el formato, traducimos todo
+                noticia_es = traducir_texto(noticia_en)
         else:
-            noticia_es = traducir_texto(noticia_en)  # Si no hay paréntesis, traducimos todo
+            noticia_es = traducir_texto(noticia_en)
         actualizar_datos(conn, "TablaFinviz", "Noticia", noticia_es, f"Ticker = '{ticker}'")
 
-    tickers_sin_datos = [row[1] for row in leer_datos(conn, "TablaFinviz", "ShsFloat IS NULL OR ShortFloat IS NULL OR ShortRatio IS NULL OR AvgVolume IS NULL OR CashSh IS NULL")]
+    # Actualizar datos adicionales con paréntesis explícitos
+    tickers_sin_datos = [row[1] for row in leer_datos(conn, "TablaFinviz", f"(ShsFloat IS NULL OR ShortFloat IS NULL OR ShortRatio IS NULL OR AvgVolume IS NULL OR CashSh IS NULL) AND Fecha = '{fecha_actual}'") or []]
+    print(f"Actualizando datos adicionales para {len(tickers_sin_datos)} tickers con Fecha = {fecha_actual}")
     for ticker in tickers_sin_datos:
         datos_ad = obtener_datos_adicionales(ticker)
         if datos_ad:
@@ -53,4 +65,4 @@ def buscar_tickers():
     print("Búsqueda completada.")
 
 if __name__ == "__main__":
-    buscar_tickers()  # Ejecución manual
+    buscar_tickers()

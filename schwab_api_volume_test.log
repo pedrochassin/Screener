@@ -1,0 +1,88 @@
+2025-04-12 00:10:38,284 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:10:38,284 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=ehTixVSLNfKsmi37c31YJVEAA8fMZ54G&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:11:13,708 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:11:13,708 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=fnB6k1X6JSFlQHravRt6T9m86AZlkD04&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:12:19,400 - INFO - Código de autorización recibido: authorizationCode
+2025-04-12 00:12:19,403 - DEBUG - Starting new HTTPS connection (1): api.schwabapi.com:443
+2025-04-12 00:12:19,604 - DEBUG - https://api.schwabapi.com:443 "POST /v1/oauth/token HTTP/1.1" 401 151
+2025-04-12 00:12:19,606 - ERROR - Error al obtener tokens: 
+               {
+                    "error": "invalid_client",
+                    "error_description": "Unauthorized"
+                }
+             - 401 Client Error: Unauthorized for url: https://api.schwabapi.com/v1/oauth/token
+2025-04-12 00:12:19,606 - ERROR - Fallo al obtener tokens
+2025-04-12 00:16:09,670 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:16:09,671 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=fnB6k1X6JSFlQHravRt6T9m86AZlkD04&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:16:23,223 - INFO - Código de autorización recibido: C0.b2F1dGgyLmNkYy5zY2h3YWIuY29t.TLwvkXhSK35lRz5f1uSJnyx7cVakkJbBHeDwXQk2PbI
+2025-04-12 00:16:23,227 - DEBUG - Starting new HTTPS connection (1): api.schwabapi.com:443
+2025-04-12 00:16:23,366 - DEBUG - https://api.schwabapi.com:443 "POST /v1/oauth/token HTTP/1.1" 401 151
+2025-04-12 00:16:23,368 - ERROR - Error al obtener tokens: 
+               {
+                    "error": "invalid_client",
+                    "error_description": "Unauthorized"
+                }
+             - 401 Client Error: Unauthorized for url: https://api.schwabapi.com/v1/oauth/token
+2025-04-12 00:16:23,368 - ERROR - Fallo al obtener tokens
+2025-04-12 00:16:33,197 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:16:33,197 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=fnB6k1X6JSFlQHravRt6T9m86AZlkD04&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:19:50,836 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:19:50,836 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=ehTixVSLNfKsmi37c31YJVEAA8fMZ54G&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:22:20,601 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:22:20,602 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=fnB6k1X6JSFlQHravRt6T9m86AZlkD04&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:24:52,110 - INFO - Código de autorización recibido: C0.b2F1dGgyLmJkYy5zY2h3YWIuY29t.yaL9Rt_x36tHLm5Ajq9WYxMAwkxXmiWrplztxXaT2C8@
+2025-04-12 00:24:52,114 - DEBUG - Starting new HTTPS connection (1): api.schwabapi.com:443
+2025-04-12 00:24:52,318 - DEBUG - https://api.schwabapi.com:443 "POST /v1/oauth/token HTTP/1.1" 401 151
+2025-04-12 00:24:52,319 - ERROR - Error al obtener tokens: 
+               {
+                    "error": "invalid_client",
+                    "error_description": "Unauthorized"
+                }
+             - 401 Client Error: Unauthorized for url: https://api.schwabapi.com/v1/oauth/token
+2025-04-12 00:24:52,320 - ERROR - Fallo al obtener tokens
+2025-04-12 00:27:28,496 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:27:56,974 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=fnB6k1X6JSFlQHravRt6T9m86AZlkD04&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:28:45,623 - INFO - Código de autorización recibido: C0.b2F1dGgyLmJkYy5zY2h3YWIuY29t.gt-umjXKmZJGnoICQuYW_eeyQ-B5srw6MjGFPsTXkRI@
+2025-04-12 00:28:45,623 - DEBUG - Enviando solicitud de tokens: {'grant_type': 'authorization_code', 'code': 'C0.b2F1dGgyLmJkYy5zY2h3YWIuY29t.gt-umjXKmZJGnoICQuYW_eeyQ-B5srw6MjGFPsTXkRI@', 'redirect_uri': 'https://developer.schwab.com/oauth2-redirect.html', 'client_id': 'fnB6k1X6JSFlQHravRt6T9m86AZlkD04', 'client_secret': 'TGW90ZhxR9zHUcveTGW90ZhxR9zHUcve'}
+2025-04-12 00:28:45,626 - DEBUG - Starting new HTTPS connection (1): api.schwabapi.com:443
+2025-04-12 00:28:45,798 - DEBUG - https://api.schwabapi.com:443 "POST /v1/oauth/token HTTP/1.1" 401 151
+2025-04-12 00:28:45,800 - ERROR - Error al obtener tokens: 
+               {
+                    "error": "invalid_client",
+                    "error_description": "Unauthorized"
+                }
+             - 401 Client Error: Unauthorized for url: https://api.schwabapi.com/v1/oauth/token
+2025-04-12 00:28:45,800 - ERROR - Fallo al obtener tokens
+2025-04-12 00:31:55,043 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:32:03,990 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=fnB6k1X6JSFlQHravRt6T9m86AZlkD04&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:32:33,454 - INFO - Código de autorización recibido: C0.b2F1dGgyLmJkYy5zY2h3YWIuY29t.t1l1hBo_FerE9I-1a6fVOibeNQwBC8fC4V8ndmLW2A8@
+2025-04-12 00:32:33,454 - DEBUG - Enviando solicitud de tokens: {'grant_type': 'authorization_code', 'code': 'C0.b2F1dGgyLmJkYy5zY2h3YWIuY29t.t1l1hBo_FerE9I-1a6fVOibeNQwBC8fC4V8ndmLW2A8@', 'redirect_uri': 'https://developer.schwab.com/oauth2-redirect.html', 'client_id': 'fnB6k1X6JSFlQHravRt6T9m86AZlkD04', 'client_secret': 'TGW90ZhxR9zHUcve'}
+2025-04-12 00:32:33,456 - DEBUG - Starting new HTTPS connection (1): api.schwabapi.com:443
+2025-04-12 00:32:33,611 - DEBUG - https://api.schwabapi.com:443 "POST /v1/oauth/token HTTP/1.1" 401 151
+2025-04-12 00:32:33,612 - ERROR - Error al obtener tokens: 
+               {
+                    "error": "invalid_client",
+                    "error_description": "Unauthorized"
+                }
+             - 401 Client Error: Unauthorized for url: https://api.schwabapi.com/v1/oauth/token
+2025-04-12 00:32:33,613 - ERROR - Fallo al obtener tokens
+2025-04-12 00:33:35,970 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:33:52,477 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=fnB6k1X6JSFlQHravRt6T9m86AZlkD04&redirect_uri=https://developer.schwab.com/oauth2-redirect.html&response_type=code&scope=readonly
+2025-04-12 00:34:18,350 - INFO - Código de autorización recibido: C0.b2F1dGgyLmNkYy5zY2h3YWIuY29t.5i0WjQZXZpJgWCWD23BZ910BQ9MBAZxKp93nwpEC-KY@
+2025-04-12 00:34:18,350 - DEBUG - Enviando solicitud de tokens con client_id: fnB6k1X6JSFlQHravRt6T9m86AZlkD04
+2025-04-12 00:34:18,352 - DEBUG - Starting new HTTPS connection (1): api.schwabapi.com:443
+2025-04-12 00:34:18,649 - DEBUG - https://api.schwabapi.com:443 "POST /v1/oauth/token HTTP/1.1" 401 151
+2025-04-12 00:34:18,650 - ERROR - Error al obtener tokens: 
+               {
+                    "error": "invalid_client",
+                    "error_description": "Unauthorized"
+                }
+             - 401 Client Error: Unauthorized for url: https://api.schwabapi.com/v1/oauth/token
+2025-04-12 00:34:18,650 - ERROR - Fallo al obtener tokens
+2025-04-12 00:41:06,213 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:41:14,428 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=ehTixVSLNfKsmi37c31YJVEAA8fMZ54G&redirect_uri=https://127.0.0.1:8182/&response_type=code&scope=readonly
+2025-04-12 00:41:14,495 - INFO - Esperando código de autorización en localhost:8182...
+2025-04-12 00:45:06,005 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:45:32,628 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=ehTixVSLNfKsmi37c31YJVEAA8fMZ54G&redirect_uri=https://127.0.0.1/&response_type=code&scope=readonly
+2025-04-12 00:47:29,921 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:47:38,660 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=ehTixVSLNfKsmi37c31YJVEAA8fMZ54G&redirect_uri=https://127.0.0.1/&response_type=code&scope=readonly

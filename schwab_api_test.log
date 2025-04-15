@@ -1,0 +1,3 @@
+2025-04-12 00:04:29,778 - INFO - Iniciando prueba de conexión a la API de Schwab
+2025-04-12 00:04:29,778 - DEBUG - URL de autenticación: https://api.schwabapi.com/v1/oauth/authorize?client_id=ehTixVSLNfKsmi37c31YJVEAA8fMZ54G&redirect_uri=https://127.0.0.1:8182/&response_type=code&scope=readonly
+2025-04-12 00:04:29,849 - INFO - Esperando código de autorización en localhost:8182...
