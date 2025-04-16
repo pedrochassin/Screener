@@ -23,8 +23,8 @@ APP_SECRET = 'TGW90ZhxR9zHUcve'  # Reemplaza con tu secreto API
 CALLBACK_URI = 'https://127.0.0.1'  # Ajusta según el portal
 TOKEN_PATH = 'token.json'  # Archivo para almacenar el token
 
-# Número de tickers para pruebas
-TICKERS_LIMIT = 10  # Cambia a None para todos los tickers
+# Número de tickers (None para todos)
+TICKERS_LIMIT = None
 
 # Obtiene tickers únicos desde la base de datos
 def obtener_tickers_unicos(limit=None):
@@ -72,10 +72,6 @@ async def obtener_datos_schwab(tickers):
                                 volume = quote.get('totalVolume', 0)
                                 avg_vol = fundamental.get('avg10DaysVolume', 0)
                                 rvo = volume / avg_vol if avg_vol > 0 else 0
-                                # Genera barra de estado para Rvo (usando asteriscos para compatibilidad)
-                                rvo_normalized = min(max(rvo, 0), 5)
-                                rvo_bar = '*' * int(rvo_normalized * 2)
-                                rvo_bar = rvo_bar.ljust(10)
                                 
                                 datos[ticker] = {
                                     'Price': quote.get('lastPrice', 0),
@@ -84,9 +80,9 @@ async def obtener_datos_schwab(tickers):
                                     'AvgVol': avg_vol,
                                     'Rvo': rvo,
                                     'Ret': ret,
-                                    'RvoBar': rvo_bar
+                                    'RvoBar': ''
                                 }
-                                print(f"[DEBUG] {ticker}: Price={datos[ticker]['Price']}, Change%={datos[ticker]['Change%']:.2f}, Volume={volume}, AvgVol={avg_vol:.0f}, Rvo={rvo:.2f}, Ret={ret:.2f}, RvoBar={rvo_bar}")
+                                print(f"[DEBUG] {ticker}: Price={datos[ticker]['Price']}, Change%={datos[ticker]['Change%']:.2f}, Volume={volume}, AvgVol={avg_vol:.0f}, Rvo={rvo:.2f}, Ret={ret:.2f}, RvoBar=''")
                             else:
                                 datos[ticker] = {'Price': 0, 'Change%': 0, 'Volume': 0, 'AvgVol': 0, 'Rvo': 0, 'Ret': 0, 'RvoBar': ''}
                                 print(f"[DEBUG] No se encontraron datos para {ticker}")
@@ -197,7 +193,8 @@ def crear_vista_datos_actuales():
 
 # Función principal
 async def main():
-    print(f"[scraper_schwab] Iniciando generación de datos actuales a las {datetime.now().strftime('%H:%M:%S')}...")
+    start_time = datetime.now()
+    print(f"[scraper_schwab] Iniciando generación de datos actuales a las {start_time.strftime('%H:%M:%S')}...")
     tickers = obtener_tickers_unicos(limit=TICKERS_LIMIT)
     
     if not tickers:
@@ -213,7 +210,8 @@ async def main():
     print(f"[scraper_schwab] Creando vista DatosActuales...")
     crear_vista_datos_actuales()
 
-    print("[scraper_schwab] Generación de datos completada.")
+    end_time = datetime.now()
+    print(f"[scraper_schwab] Generación de datos completada en {(end_time - start_time).total_seconds():.2f} segundos.")
 
 if __name__ == "__main__":
     try:

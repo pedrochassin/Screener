@@ -69,7 +69,7 @@ class DataTable(QTableWidget):
                 background-color: #232533;
                 border-radius: 5px;
                 text-align: center;
-                color: #ffffff;
+                color: #232533; /* Color del texto dentro de la barra de progreso */
             }
             QProgressBar::chunk {
                 background: qlineargradient(
@@ -115,15 +115,8 @@ class DataTable(QTableWidget):
         self.datos_completos = datos
         self.setRowCount(0)
 
-        # Obtener el valor máximo de Rvol para normalizar las barras de progreso
-        rvol_values = []
-        for fila in datos:
-            try:
-                rvol = float(fila[18])  # Columna Rvol (índice 18)
-                rvol_values.append(rvol)
-            except (ValueError, TypeError):
-                rvol_values.append(0.0)
-        max_rvol = max(rvol_values, default=1.0)  # Evitar división por cero
+        # Usar un valor fijo para normalizar las barras de progreso
+        max_rvol = 5000.0  # Valor fijo para la normalización
 
         # Cargar los datos y añadir barras de progreso
         for fila in datos:
@@ -136,7 +129,7 @@ class DataTable(QTableWidget):
                     except (ValueError, TypeError):
                         rvol = 0.0
                     # Normalizar el valor de Rvol al rango 0-100
-                    progress_value = (rvol / max_rvol) * 100 if max_rvol > 0 else 0
+                    progress_value = min((rvol / max_rvol) * 100, 100) if max_rvol > 0 else 0
                     progress_bar = QProgressBar(self)
                     progress_bar.setValue(int(progress_value))
                     
